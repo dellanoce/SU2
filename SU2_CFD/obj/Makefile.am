@@ -151,6 +151,7 @@ libSU2Core_sources = ../src/definition_structure.cpp \
   ../src/output/CAdjHeatOutput.cpp \
   ../src/output/CAdjFlowCompOutput.cpp \
   ../src/output/CAdjFlowIncOutput.cpp \
+  ../src/output/CAdjNEMOCompOutput.cpp \
   ../src/output/CMultizoneOutput.cpp \
   ../src/output/CNEMOCompOutput.cpp \
   ../src/output/COutputFactory.cpp \

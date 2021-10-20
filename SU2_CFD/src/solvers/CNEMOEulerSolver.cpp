@@ -752,7 +752,7 @@ void CNEMOEulerSolver::Source_Residual(CGeometry *geometry, CSolver **solver_con
   bool monoatomic = config->GetMonoatomic();
   bool axisymm    = config->GetAxisymmetric();
   bool viscous    = config->GetViscous();
-  bool rans       = (config->GetKind_Turb_Model() != TURB_MODEL::NONE);
+  bool rans       = (config->GetKind_Turb_Model() != NONE);
 
   CNumerics* numerics = numerics_container[SOURCE_FIRST_TERM];
 
@@ -1015,7 +1015,7 @@ void CNEMOEulerSolver::SetNondimensionalization(CConfig *config, unsigned short 
   bool dynamic_grid       = config->GetGrid_Movement();
   bool gravity            = config->GetGravityForce();
   bool turbulent          = false;
-  bool tkeNeeded          = ((turbulent) && (config->GetKind_Turb_Model() == TURB_MODEL::SST));
+  bool tkeNeeded          = ((turbulent) && (config->GetKind_Turb_Model() == SST));
   bool reynolds_init      = (config->GetKind_InitOption() == REYNOLDS);
 
   /*--- Instatiate the fluid model ---*/
@@ -2450,4 +2450,16 @@ void CNEMOEulerSolver::BC_Supersonic_Outlet(CGeometry *geometry, CSolver **solve
   /*--- Free locally allocated memory ---*/
   delete [] Normal;
 
+}
+
+void CNEMOEulerSolver::ResetNodeInfty(su2double pressure_inf, const su2double *massfrac_inf, su2double *mvec_inf, su2double temperature_inf,
+                                      su2double temperature_ve_inf, CConfig *config){
+  su2double check_infty;
+  if (node_infty != nullptr) delete node_infty;
+
+  node_infty = new CNEMOEulerVariable(pressure_inf, massfrac_inf, mvec_inf, temperature_inf,
+                                      temperature_ve_inf, 1, nDim, nVar,
+                                      nPrimVar, nPrimVarGrad, config, GetFluidModel());
+
+  check_infty = node_infty->SetPrimVar(0,GetFluidModel());
 }

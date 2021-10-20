@@ -1279,9 +1279,11 @@ void CFlowOutput::WriteMetaData(const CConfig *config){
     meta_file <<"INITIAL_BCTHRUST= " << config->GetInitial_BCThrust() << endl;
 
 
-    if (( config->GetKind_Solver() == DISC_ADJ_EULER ||
-          config->GetKind_Solver() == DISC_ADJ_NAVIER_STOKES ||
-          config->GetKind_Solver() == DISC_ADJ_RANS )) {
+    if ( config->GetKind_Solver() == DISC_ADJ_EULER ||
+         config->GetKind_Solver() == DISC_ADJ_NAVIER_STOKES ||
+         config->GetKind_Solver() == DISC_ADJ_RANS  ||
+         config->GetKind_Solver() == DISC_ADJ_NEMO_EULER ||
+         config->GetKind_Solver() == DISC_ADJ_NEMO_NAVIER_STOKES) {
       meta_file << "SENS_AOA=" << GetHistoryFieldValue("SENS_AOA") * PI_NUMBER / 180.0 << endl;
     }
   }
@@ -1299,8 +1301,8 @@ void CFlowOutput::WriteForcesBreakdown(const CConfig* config, const CSolver* flo
   const bool viscous = config->GetViscous();
   const bool dynamic_grid = config->GetDynamic_Grid();
   const bool gravity = config->GetGravityForce();
-  const TURB_MODEL Kind_Turb_Model = config->GetKind_Turb_Model();
-  const bool turbulent = Kind_Turb_Model != TURB_MODEL::NONE;
+  const auto Kind_Turb_Model = config->GetKind_Turb_Model();
+  const bool turbulent = Kind_Turb_Model != NONE;
   const bool fixed_cl = config->GetFixed_CL_Mode();
   const auto Kind_Solver = config->GetKind_Solver();
   const auto Ref_NonDim = config->GetRef_NonDim();
@@ -1530,26 +1532,25 @@ void CFlowOutput::WriteForcesBreakdown(const CConfig* config, const CSolver* flo
       if (incompressible) file << "Incompressible RANS equations.\n";
       file << "Turbulence model: ";
       switch (Kind_Turb_Model) {
-        case TURB_MODEL::NONE: break;
-        case TURB_MODEL::SA:
+        case SA:
           file << "Spalart Allmaras\n";
           break;
-        case TURB_MODEL::SA_NEG:
+        case SA_NEG:
           file << "Negative Spalart Allmaras\n";
           break;
-        case TURB_MODEL::SA_E:
+        case SA_E:
           file << "Edwards Spalart Allmaras\n";
           break;
-        case TURB_MODEL::SA_COMP:
+        case SA_COMP:
           file << "Compressibility Correction Spalart Allmaras\n";
           break;
-        case TURB_MODEL::SA_E_COMP:
+        case SA_E_COMP:
           file << "Compressibility Correction Edwards Spalart Allmaras\n";
           break;
-        case TURB_MODEL::SST:
+        case SST:
           file << "Menter's SST\n";
           break;
-        case TURB_MODEL::SST_SUST:
+        case SST_SUST:
           file << "Menter's SST with sustaining terms\n";
           break;
       }

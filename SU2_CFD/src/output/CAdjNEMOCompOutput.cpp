@@ -1,7 +1,7 @@
 /*!
- * \file CAdjFlowCompOutput.cpp
+ * \file CAdjNEMOCompOutput.cpp
  * \brief Main subroutines for flow discrete adjoint output
- * \author R. Sanchez
+ * \author W.Maier, R. Sanchez
  * \version 7.2.0 "Blackbird"
  *
  * SU2 Project Website: https://su2code.github.io
@@ -26,18 +26,17 @@
  */
 
 
-#include "../../include/output/CAdjFlowCompOutput.hpp"
+#include "../../include/output/CAdjNEMOCompOutput.hpp"
 
 #include "../../../Common/include/geometry/CGeometry.hpp"
 #include "../../include/solvers/CSolver.hpp"
 
-CAdjFlowCompOutput::CAdjFlowCompOutput(CConfig *config, unsigned short nDim) : COutput(config, nDim, false) {
+CAdjNEMOCompOutput::CAdjNEMOCompOutput(CConfig *config, unsigned short nDim) : COutput(config, nDim, false) {
 
   turb_model = config->GetKind_Turb_Model();
+  unsigned short nSpecies   = config->GetnSpecies();
 
-  cont_adj = config->GetContinuous_Adjoint();
-
-  frozen_visc = (config->GetFrozen_Visc_Disc() && !cont_adj) || (config->GetFrozen_Visc_Cont() && cont_adj);
+  frozen_visc = (config->GetFrozen_Visc_Disc());
 
   /*--- Set the default history fields if nothing is set in the config file ---*/
 
@@ -52,6 +51,8 @@ CAdjFlowCompOutput::CAdjFlowCompOutput(CConfig *config, unsigned short nDim) : C
     if (config->GetTime_Domain()) requestedScreenFields.emplace_back("TIME_ITER");
     if (multiZone) requestedScreenFields.emplace_back("OUTER_ITER");
     requestedScreenFields.emplace_back("INNER_ITER");
+    for(auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+      requestedScreenFields.emplace_back("RMS_ADJ_DENSITY_" + std::to_string(iSpecies));
     requestedScreenFields.emplace_back("RMS_ADJ_DENSITY");
     requestedScreenFields.emplace_back("RMS_ADJ_MOMENTUM-X");
     requestedScreenFields.emplace_back("SENS_GEO");
@@ -93,17 +94,20 @@ CAdjFlowCompOutput::CAdjFlowCompOutput(CConfig *config, unsigned short nDim) : C
 
   /*--- Set the default convergence field --- */
 
-  if (convFields.empty() ) convFields.emplace_back("RMS_ADJ_DENSITY");
+  if (convFields.empty() ) convFields.emplace_back("RMS_ADJ_DENSITY_0");
 
 }
 
-CAdjFlowCompOutput::~CAdjFlowCompOutput(void) {}
+CAdjNEMOCompOutput::~CAdjNEMOCompOutput(void) {}
 
-void CAdjFlowCompOutput::SetHistoryOutputFields(CConfig *config){
+void CAdjNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
+
+  unsigned short nSpecies = config->GetnSpecies();
 
   /// BEGIN_GROUP: RMS_RES, DESCRIPTION: The root-mean-square residuals of the SOLUTION variables.
   /// DESCRIPTION: Root-mean square residual of the adjoint density.
-  AddHistoryOutput("RMS_ADJ_DENSITY",    "rms[A_Rho]",  ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the adjoint density.", HistoryFieldType::RESIDUAL);
+  for (auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    AddHistoryOutput("RMS_ADJ_DENSITY_" + std::to_string(iSpecies), "rms[A_Rho_" + std::to_string(iSpecies) + "]",   ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the species adjoint density " + std::to_string(iSpecies) + ".", HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Root-mean square residual of the adjoint momentum x-component.
   AddHistoryOutput("RMS_ADJ_MOMENTUM-X", "rms[A_RhoU]", ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the adjoint momentum x-component.", HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Root-mean square residual of the adjoint momentum y-component.
@@ -112,6 +116,9 @@ void CAdjFlowCompOutput::SetHistoryOutputFields(CConfig *config){
   AddHistoryOutput("RMS_ADJ_MOMENTUM-Z", "rms[A_RhoW]", ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the adjoint momentum z-component.", HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Root-mean square residual of the adjoint energy.
   AddHistoryOutput("RMS_ADJ_ENERGY",     "rms[A_E]",    ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the adjoint energy.", HistoryFieldType::RESIDUAL);
+  /// DESCRIPTION: Root-mean square residual of the energy.
+  AddHistoryOutput("RMS_ADJ_ENERGY_VE",  "rms[A_Eve]", ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the adjoint ve-energy.", HistoryFieldType::RESIDUAL);
+
   if (!frozen_visc) {
     switch(turb_model){
     case SA: case SA_NEG: case SA_E: case SA_COMP: case SA_E_COMP:
@@ -215,20 +222,27 @@ void CAdjFlowCompOutput::SetHistoryOutputFields(CConfig *config){
 
 }
 
-void CAdjFlowCompOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSolver **solver){
+void CAdjNEMOCompOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSolver **solver){
 
   CSolver* adjflow_solver = solver[ADJFLOW_SOL];
   CSolver* adjturb_solver = solver[ADJTURB_SOL];
   CSolver* mesh_solver = solver[MESH_SOL];
 
-  SetHistoryOutputValue("RMS_ADJ_DENSITY", log10(adjflow_solver->GetRes_RMS(0)));
-  SetHistoryOutputValue("RMS_ADJ_MOMENTUM-X", log10(adjflow_solver->GetRes_RMS(1)));
-  SetHistoryOutputValue("RMS_ADJ_MOMENTUM-Y", log10(adjflow_solver->GetRes_RMS(2)));
+  unsigned short nSpecies = config->GetnSpecies();
+
+  for(auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    SetHistoryOutputValue("RMS_ADJ_DENSITY_" + std::to_string(iSpecies), log10(adjflow_solver->GetRes_RMS(iSpecies)));
+
+  SetHistoryOutputValue("RMS_ADJ_MOMENTUM-X", log10(adjflow_solver->GetRes_RMS(nSpecies)));
+  SetHistoryOutputValue("RMS_ADJ_MOMENTUM-Y", log10(adjflow_solver->GetRes_RMS(nSpecies+1)));
   if (geometry->GetnDim() == 3) {
-    SetHistoryOutputValue("RMS_ADJ_MOMENTUM-Z", log10(adjflow_solver->GetRes_RMS(3)));
-    SetHistoryOutputValue("RMS_ADJ_ENERGY", log10(adjflow_solver->GetRes_RMS(4)));
+    SetHistoryOutputValue("RMS_ADJ_MOMENTUM-Z", log10(adjflow_solver->GetRes_RMS(nSpecies+2)));
+    SetHistoryOutputValue("RMS_ADJ_ENERGY", log10(adjflow_solver->GetRes_RMS(nSpecies+3)));
+    SetHistoryOutputValue("RMS_ADJ_ENERGY_VE", log10(adjflow_solver->GetRes_RMS(nSpecies+4)));
   } else {
-    SetHistoryOutputValue("RMS_ADJ_ENERGY", log10(adjflow_solver->GetRes_RMS(3)));
+    SetHistoryOutputValue("RMS_ADJ_ENERGY", log10(adjflow_solver->GetRes_RMS(nSpecies+2)));
+    SetHistoryOutputValue("RMS_ADJ_ENERGY_VE", log10(adjflow_solver->GetRes_RMS(nSpecies+3)));
+
   }
   if (!frozen_visc) {
     switch(turb_model){
@@ -309,7 +323,9 @@ void CAdjFlowCompOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, C
 
 }
 
-void CAdjFlowCompOutput::SetVolumeOutputFields(CConfig *config){
+void CAdjNEMOCompOutput::SetVolumeOutputFields(CConfig *config){
+
+  unsigned short nSpecies = config->GetnSpecies();
 
   // Grid coordinates
   AddVolumeOutput("COORD-X", "x", "COORDINATES", "x-component of the coordinate vector");
@@ -319,7 +335,8 @@ void CAdjFlowCompOutput::SetVolumeOutputFields(CConfig *config){
 
   /// BEGIN_GROUP: SOLUTION, DESCRIPTION: The SOLUTION variables of the adjoint solver.
   /// DESCRIPTION: Adjoint density.
-  AddVolumeOutput("ADJ_DENSITY",    "Adjoint_Density",    "SOLUTION", "Adjoint density");
+  for(auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    AddVolumeOutput("ADJ_DENSITY_" + std::to_string(iSpecies),  "Density_" + std::to_string(iSpecies),  "SOLUTION", "Density_"  + std::to_string(iSpecies));
   /// DESCRIPTION: Adjoint momentum x-component.
   AddVolumeOutput("ADJ_MOMENTUM-X", "Adjoint_Momentum_x", "SOLUTION", "x-component of the adjoint momentum vector");
   /// DESCRIPTION: Adjoint momentum y-component.
@@ -329,6 +346,8 @@ void CAdjFlowCompOutput::SetVolumeOutputFields(CConfig *config){
     AddVolumeOutput("ADJ_MOMENTUM-Z", "Adjoint_Momentum_z", "SOLUTION", "z-component of the adjoint momentum vector");
   /// DESCRIPTION: Adjoint energy.
   AddVolumeOutput("ADJ_ENERGY", "Adjoint_Energy", "SOLUTION", "Adjoint energy");
+  /// DESCRIPTION: Adjoint energy.
+  AddVolumeOutput("ADJ_ENERGY_VE", "Adjoint_Energy_VE", "SOLUTION", "Adjoint energy_Ve");
   if (!frozen_visc) {
     switch(turb_model){
     case SA: case SA_NEG: case SA_E: case SA_COMP: case SA_E_COMP:
@@ -348,7 +367,8 @@ void CAdjFlowCompOutput::SetVolumeOutputFields(CConfig *config){
 
   /// BEGIN_GROUP: RESIDUAL, DESCRIPTION: Residuals of the SOLUTION variables.
   /// DESCRIPTION: Residual of the adjoint density.
-  AddVolumeOutput("RES_ADJ_DENSITY",    "Residual_Adjoint_Density",    "RESIDUAL", "Residual of the adjoint density");
+  for(auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    AddVolumeOutput("RES_ADJ_DENSITY_" + std::to_string(iSpecies), "Residual_Density_" + std::to_string(iSpecies), "RESIDUAL", "Residual of species density " + std::to_string(iSpecies));
   /// DESCRIPTION: Residual of the adjoint momentum x-component.
   AddVolumeOutput("RES_ADJ_MOMENTUM-X", "Residual_Adjoint_Momentum_x", "RESIDUAL", "Residual of the adjoint x-momentum");
   /// DESCRIPTION: Residual of the adjoint momentum y-component.
@@ -358,6 +378,9 @@ void CAdjFlowCompOutput::SetVolumeOutputFields(CConfig *config){
     AddVolumeOutput("RES_ADJ_MOMENTUM-Z", "Residual_Adjoint_Momentum_z", "RESIDUAL", "Residual of the adjoint z-momentum");
   /// DESCRIPTION: Residual of the adjoint energy.
   AddVolumeOutput("RES_ADJ_ENERGY", "Residual_Adjoint_Energy", "RESIDUAL", "Residual of the adjoint energy");
+  /// DESCRIPTION: Residual of the adjoint ve-energy.
+  AddVolumeOutput("RES_ADJ_ENERGY_VE", "Residual_Adjoint_Energy_VE", "RESIDUAL", "Residual of the adjoint ve-energy");
+
   if (!frozen_visc) {
     switch(turb_model){
     case SA: case SA_NEG: case SA_E: case SA_COMP: case SA_E_COMP:
@@ -389,11 +412,12 @@ void CAdjFlowCompOutput::SetVolumeOutputFields(CConfig *config){
 
 }
 
-void CAdjFlowCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint){
+void CAdjNEMOCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint){
 
   CVariable* Node_AdjFlow = solver[ADJFLOW_SOL]->GetNodes();
   CVariable* Node_AdjTurb = nullptr;
   CPoint*    Node_Geo     = geometry->nodes;
+  unsigned short nSpecies = config->GetnSpecies();
 
   if (turb_model && !frozen_visc) {
     Node_AdjTurb = solver[ADJTURB_SOL]->GetNodes();
@@ -404,14 +428,18 @@ void CAdjFlowCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CS
   if (nDim == 3)
     SetVolumeOutputValue("COORD-Z", iPoint, Node_Geo->GetCoord(iPoint, 2));
 
-  SetVolumeOutputValue("ADJ_DENSITY",    iPoint, Node_AdjFlow->GetSolution(iPoint, 0));
-  SetVolumeOutputValue("ADJ_MOMENTUM-X", iPoint, Node_AdjFlow->GetSolution(iPoint, 1));
-  SetVolumeOutputValue("ADJ_MOMENTUM-Y", iPoint, Node_AdjFlow->GetSolution(iPoint, 2));
+  for(auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    SetVolumeOutputValue("ADJ_DENSITY_" + std::to_string(iSpecies), iPoint, Node_AdjFlow->GetSolution(iPoint, iSpecies));
+
+  SetVolumeOutputValue("ADJ_MOMENTUM-X", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies));
+  SetVolumeOutputValue("ADJ_MOMENTUM-Y", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+1));
   if (nDim == 3){
-    SetVolumeOutputValue("ADJ_MOMENTUM-Z", iPoint, Node_AdjFlow->GetSolution(iPoint, 3));
-    SetVolumeOutputValue("ADJ_ENERGY",     iPoint, Node_AdjFlow->GetSolution(iPoint, 4));
+    SetVolumeOutputValue("ADJ_MOMENTUM-Z", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+2));
+    SetVolumeOutputValue("ADJ_ENERGY",     iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+3));
+    SetVolumeOutputValue("ADJ_ENERGY_VE",  iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+4));
   } else {
-    SetVolumeOutputValue("ADJ_ENERGY",     iPoint, Node_AdjFlow->GetSolution(iPoint, 3));
+    SetVolumeOutputValue("ADJ_ENERGY",     iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+2));
+    SetVolumeOutputValue("ADJ_ENERGY_VE",  iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+3));
   }
 
   if (!frozen_visc) {
@@ -431,14 +459,18 @@ void CAdjFlowCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CS
   }
 
   // Residuals
-  SetVolumeOutputValue("RES_ADJ_DENSITY",    iPoint, Node_AdjFlow->GetSolution(iPoint, 0) - Node_AdjFlow->GetSolution_Old(iPoint, 0));
-  SetVolumeOutputValue("RES_ADJ_MOMENTUM-X", iPoint, Node_AdjFlow->GetSolution(iPoint, 1) - Node_AdjFlow->GetSolution_Old(iPoint, 1));
-  SetVolumeOutputValue("RES_ADJ_MOMENTUM-Y", iPoint, Node_AdjFlow->GetSolution(iPoint, 2) - Node_AdjFlow->GetSolution_Old(iPoint, 2));
+  for(auto iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    SetVolumeOutputValue("RES_ADJ_DENSITY_" + std::to_string(iSpecies), iPoint, solver[FLOW_SOL]->LinSysRes(iPoint, iSpecies));
+
+  SetVolumeOutputValue("RES_ADJ_MOMENTUM-X", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies));
+  SetVolumeOutputValue("RES_ADJ_MOMENTUM-Y", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+1) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies+1));
   if (nDim == 3){
-    SetVolumeOutputValue("RES_ADJ_MOMENTUM-Z", iPoint, Node_AdjFlow->GetSolution(iPoint, 3) - Node_AdjFlow->GetSolution_Old(iPoint, 3));
-    SetVolumeOutputValue("RES_ADJ_ENERGY",     iPoint, Node_AdjFlow->GetSolution(iPoint, 4) - Node_AdjFlow->GetSolution_Old(iPoint, 4));
+    SetVolumeOutputValue("RES_ADJ_MOMENTUM-Z", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+2) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies+2));
+    SetVolumeOutputValue("RES_ADJ_ENERGY",     iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+3) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies+3));
+    SetVolumeOutputValue("RES_ADJ_ENERGY_VE",  iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+4) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies+4));
   } else {
-    SetVolumeOutputValue("RES_ADJ_ENERGY", iPoint, Node_AdjFlow->GetSolution(iPoint, 3) - Node_AdjFlow->GetSolution_Old(iPoint, 3));
+    SetVolumeOutputValue("RES_ADJ_ENERGY", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+2) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies+2));
+    SetVolumeOutputValue("RES_ADJ_ENERGY_VE", iPoint, Node_AdjFlow->GetSolution(iPoint, nSpecies+3) - Node_AdjFlow->GetSolution_Old(iPoint, nSpecies+3));
   }
 
   if (!frozen_visc) {
@@ -463,16 +495,17 @@ void CAdjFlowCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CS
 
 }
 
-void CAdjFlowCompOutput::LoadSurfaceData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint, unsigned short iMarker, unsigned long iVertex){
+void CAdjNEMOCompOutput::LoadSurfaceData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint, unsigned short iMarker, unsigned long iVertex){
 
   SetVolumeOutputValue("SENSITIVITY", iPoint, solver[ADJFLOW_SOL]->GetCSensitivity(iMarker, iVertex));
 
 }
 
 
-bool CAdjFlowCompOutput::SetInit_Residuals(const CConfig *config){
+bool CAdjNEMOCompOutput::SetInit_Residuals(const CConfig *config){
 
   return ((config->GetTime_Marching() != TIME_MARCHING::STEADY) && (curInnerIter == 0)) ||
          ((config->GetTime_Marching() == TIME_MARCHING::STEADY) && (curInnerIter < 2));
 
 }
+

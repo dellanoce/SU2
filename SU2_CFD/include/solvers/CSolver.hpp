@@ -330,6 +330,12 @@ public:
    * \brief Set the value of the max residual and RMS residual.
    * \param[in] val_iterlinsolver - Number of linear iterations.
    */
+  void ComputeResidual_RMS(const CGeometry *geometry, const CConfig *config);
+
+  /*!
+   * \brief Set the value of the max residual and RMS residual.
+   * \param[in] val_iterlinsolver - Number of linear iterations.
+   */
   void ComputeResidual_Multizone(const CGeometry *geometry, const CConfig *config);
 
   /*!
@@ -924,6 +930,34 @@ public:
   inline virtual void BC_Damper(CGeometry *geometry,
                                 const CConfig *config,
                                 unsigned short val_marker) { }
+
+  /*!
+   * \brief A virtual member.
+   * \param[in] geometry - Geometrical definition of the problem.
+   * \param[in] solver_container - Container vector with all the solutions.
+   * \param[in] numerics - Description of the numerical method.
+   * \param[in] config - Definition of the particular problem.
+   * \param[in] val_marker - Surface marker where the boundary condition is applied.
+   */
+  inline virtual void BC_Interface_Boundary(CGeometry *geometry,
+                                            CSolver **solver_container,
+                                            CNumerics *numerics,
+                                            CConfig *config,
+                                            unsigned short val_marker) { }
+
+  /*!
+   * \brief A virtual member.
+   * \param[in] geometry - Geometrical definition of the problem.
+   * \param[in] solver_container - Container vector with all the solutions.
+   * \param[in] numerics - Description of the numerical method.
+   * \param[in] config - Definition of the particular problem.
+   * \param[in] val_marker - Surface marker where the boundary condition is applied.
+   */
+  inline virtual void BC_NearField_Boundary(CGeometry *geometry,
+                                            CSolver **solver_container,
+                                            CNumerics *numerics,
+                                            CConfig *config,
+                                            unsigned short val_marker) { }
 
   /*!
    * \brief A virtual member.
@@ -1649,6 +1683,16 @@ public:
 
   /*!
    * \brief A virtual member.
+   * \param[in] geometry - Geometrical definition of the problem.
+   * \param[in] solver_container - Container vector with all the solutions.
+   * \param[in] config - Definition of the particular problem.
+   */
+  inline virtual void SetIntBoundary_Jump(CGeometry *geometry,
+                                          CSolver **solver_container,
+                                          CConfig *config) { }
+
+  /*!
+   * \brief A virtual member.
    * \param[in] val_Total_CD - Value of the total drag coefficient.
    */
   inline virtual void SetTotal_CD(su2double val_Total_CD) { }
@@ -1810,6 +1854,80 @@ public:
                                           CSolver **solver_container,
                                           CNumerics *numerics,
                                           CConfig *config) { }
+
+  /*!
+   * \brief Get partial derivative dIdq.
+   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
+   * \param[in] iVar   - Variable index.
+   * \return Sensitivitiy of aero funcs wrt flow states.
+   */
+  inline virtual su2double GetDerivative_dIdq(unsigned long iPoint, unsigned long iVar) const { return 0.0; }
+
+  /*!
+   * \brief Get partial derivative dIdxv.
+   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
+   * \param[in] iDim   - Dimension
+   * \return Sensitivitiy of aero funcs wrt volume coordinates.
+   */
+  inline virtual su2double GetDerivative_dIdxv(unsigned long iPoint, unsigned long iDim) const { return 0.0; }
+
+  /*!
+   * \brief Get partial derivative dIdxt.
+   * \param[in] iVar - Variable index.
+   * \return Sensitivitiy of aero funcs wrt design variables (Mach and AoA for now).
+   */
+  inline virtual su2double GetDerivative_dIdxt(unsigned long iVar) const { return 0.0; }
+
+  /*!
+   * \brief Get partial derivative dIdua.
+   * \param[in] iMarker - Marker identifier.
+   * \return Sensitivitiy of aero funcs wrt FSI boundary displacements.
+   */
+  inline virtual vector<su2double> GetDerivative_dIdua(unsigned short iMarker) const { return vector<su2double>{}; }
+
+  /*!
+   * \brief Get matrix-vector product dAdq^T x psi.
+   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
+   * \param[in] iVar   - Variable index.
+   * \return Sensitivitiy of aero resids wrt flow states.
+   */
+  inline virtual su2double GetDerivative_dAdq(unsigned long iPoint, unsigned long iVar) const { return 0.0; }
+
+  /*!
+   * \brief Get matrix-vector product dAdxv^T x psi.
+   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
+   * \param[in] iDim   - Dimension
+   * \return Sensitivitiy of aero resids wrt volume coordinates.
+   */
+  inline virtual su2double GetDerivative_dAdxv(unsigned long iPoint, unsigned long iDim) const { return 0.0; }
+
+  /*!
+   * \brief Get matrix-vector product dAdxt^T x psi.
+   * \param[in] iVar - Variable index.
+   * \return Sensitivitiy of aero resids wrt design variables (Mach and AoA for now).
+   */
+  inline virtual su2double GetDerivative_dAdxt(unsigned long iVar) const { return 0.0; }
+
+  /*!
+   * \brief Get matrix-vector product dAdua^T x psi.
+   * \param[in] iMarker - Marker identifier.
+   * \return Sensitivitiy of aero resids wrt FSI boundary displacements.
+   */
+  inline virtual vector<su2double> GetDerivative_dAdua(unsigned short iMarker) const { return vector<su2double>{}; }
+
+  /*!
+   * \brief Get matrix-vector product dfadq^T x psi.
+   * \param[in] iMarker - Marker identifier.
+   * \return Sensitivitiy of aero tractions wrt wrt flow states.
+   */
+  inline virtual su2double GetDerivative_dfadq(unsigned long iPoint, unsigned long iVar) const { return 0.0; } ;
+
+  /*!
+   * \brief Get matrix-vector product dfadxv^T x psi.
+   * \param[in] iMarker - Marker identifier.
+   * \return Sensitivitiy of aero tractions wrt volume coordinates.
+   */
+  inline virtual su2double GetDerivative_dfadxv(unsigned long iPoint, unsigned long iDim) const { return 0.0; } ;
 
   /*!
    * \brief A virtual member.
@@ -3413,6 +3531,12 @@ public:
                                           unsigned long TimeIter) { }
 
   /*!
+   * \brief Reset Node Infty for discrete adjoint
+   */
+  virtual void ResetNodeInfty(su2double pressure_inf, const su2double *massfrac_inf, su2double *mvec_inf, su2double temperature_inf,
+                              su2double temperature_ve_inf, CConfig *config) { }
+
+  /*!
    * \brief A virtual member.
    * \param[in] geometry - Geometrical definition of the problem.
    * \param[in] config - Definition of the problem.
@@ -3621,6 +3745,24 @@ public:
   inline virtual void ExtractAdjoint_Solution(CGeometry *geometry, CConfig *config, bool CrossTerm){}
 
   /*!
+   * \brief A virtual member.
+   * \param[in] geometry - The geometrical definition of the problem.
+   * \param[in] solver_container - The solver container holding all solutions.
+   * \param[in] config - The particular config.
+   * \param[in] output - Kind of output variables.
+   */
+  inline virtual void ExtractAdjoint_Solution_Residual(CGeometry *geometry, CConfig *config, ENUM_VARIABLE variable){}
+
+  /*!
+   * \brief A virtual member.
+   * \param[in] geometry - The geometrical definition of the problem.
+   * \param[in] solver_container - The solver container holding all solutions.
+   * \param[in] config - The particular config = false.
+   * \param[in] objective - Kind of output variables.
+   */
+  inline virtual void ExtractAdjoint_Geometry_Residual(CGeometry *geometry, CConfig *config, CSolver *mesh_solver, ENUM_VARIABLE variable){}
+
+  /*!
    * \brief  A virtual member.
    * \param[in] geometry - Geometrical definition of the problem.
    * \param[in] config - Definition of the particular problem.
@@ -3818,6 +3960,15 @@ public:
    * \param[in] config - Definition of the particular problem.
    */
   inline virtual void ExtractAdjoint_Variables(CGeometry *geometry, CConfig *config) { }
+
+  /*!
+   * \brief A virtual member.
+   * \param[in] geometry - The geometrical definition of the problem.
+   * \param[in] solver_container - The solver container holding all solutions.
+   * \param[in] config - The particular config.
+   * \param[in] output - Kind of output variables.
+   */
+  inline virtual void ExtractAdjoint_Variables_Residual(CGeometry *geometry, CConfig *config, ENUM_VARIABLE variable) { }
 
   /*!
    * \brief A virtual member.
@@ -4205,8 +4356,16 @@ public:
    * \param[in] config - Definition of the particular problem.
    * \param[in] referenceCoord - Determine if the mesh is deformed from the reference or from the current coordinates.
    */
-  inline virtual void SetMesh_Stiffness(CGeometry **geometry,
-                                        CNumerics **numerics,
+  inline virtual void DeformMesh(CGeometry *geometry,
+                                 CNumerics **numerics,
+                                 CConfig *config) { }
+
+  /*!
+   * \brief A virtual member.
+   * \param[in] config - Definition of the particular problem.
+   * \param[in] referenceCoord - Determine if the mesh is deformed from the reference or from the current coordinates.
+   */
+  inline virtual void SetMesh_Stiffness(CGeometry **geometry, CNumerics **numerics,
                                         CConfig *config) { }
 
   /*!
@@ -4255,6 +4414,16 @@ public:
    */
   inline su2double GetVertexTractions(unsigned short iMarker, unsigned long iVertex, unsigned short iDim) const {
     return VertexTraction[iMarker][iVertex][iDim];
+  }
+
+  /*!
+   * \brief Get the adjoints of the vertex tractions.
+   * \param[in] iMarker  - Index of the marker
+   * \param[in] iVertex  - Index of the relevant vertex
+   * \param[in] iDim     - Dimension
+   */
+  inline su2double GetAdjointVertexTractions(unsigned short iMarker, unsigned long iVertex, unsigned short iDim) const {
+    return VertexTractionAdjoint[iMarker][iVertex][iDim];
   }
 
   /*!

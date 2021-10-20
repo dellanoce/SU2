@@ -1075,8 +1075,10 @@ void CConfig::SetConfig_Options() {
 #endif
   /*!\brief MATH_PROBLEM  \n DESCRIPTION: Mathematical problem \n  Options: DIRECT, ADJOINT \ingroup Config*/
   addMathProblemOption("MATH_PROBLEM", ContinuousAdjoint, false, DiscreteAdjoint, discAdjDefault, Restart_Flow, discAdjDefault);
+  /*!\brief DISC_ADJ_TYPE  \n DESCRIPTION: Discrete adjoint problem formulation \n  Options: FIXED_POINT, RESIDUALS \ingroup Config*/
+  addEnumOption("KIND_DISC_ADJ", Kind_DiscreteAdjoint, DiscreteAdjoint_Map, ENUM_DISC_ADJ_TYPE::FIXED_POINT);
   /*!\brief KIND_TURB_MODEL \n DESCRIPTION: Specify turbulence model \n Options: see \link Turb_Model_Map \endlink \n DEFAULT: NO_TURB_MODEL \ingroup Config*/
-  addEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, TURB_MODEL::NONE);
+  addEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, NO_TURB_MODEL);
   /*!\brief KIND_TRANS_MODEL \n DESCRIPTION: Specify transition model OPTIONS: see \link Trans_Model_Map \endlink \n DEFAULT: NO_TRANS_MODEL \ingroup Config*/
   addEnumOption("KIND_TRANS_MODEL", Kind_Trans_Model, Trans_Model_Map, NO_TRANS_MODEL);
 
@@ -2000,7 +2002,7 @@ void CConfig::SetConfig_Options() {
   addBoolOption("WRT_AD_STATISTICS", Wrt_AD_Statistics, false);
   /*!\brief MARKER_ANALYZE_AVERAGE
    *  \n DESCRIPTION: Output averaged flow values on specified analyze marker.
-   *  Options: AREA, MASSFLUX
+   *  Options: AREA, MASSFLUX, HYBRID
    *  \n Use with MARKER_ANALYZE. \ingroup Config*/
   addEnumOption("MARKER_ANALYZE_AVERAGE", Kind_Average, Average_Map, AVERAGE_MASSFLUX);
   /*!\brief COMM_LEVEL
@@ -3273,16 +3275,16 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
     }
   }
 
-  if (Kind_Solver == NAVIER_STOKES && Kind_Turb_Model != TURB_MODEL::NONE){
+  if (Kind_Solver == NAVIER_STOKES && Kind_Turb_Model != NONE){
     SU2_MPI::Error("KIND_TURB_MODEL must be NONE if SOLVER= NAVIER_STOKES", CURRENT_FUNCTION);
   }
-  if (Kind_Solver == INC_NAVIER_STOKES && Kind_Turb_Model != TURB_MODEL::NONE){
+  if (Kind_Solver == INC_NAVIER_STOKES && Kind_Turb_Model != NONE){
     SU2_MPI::Error("KIND_TURB_MODEL must be NONE if SOLVER= INC_NAVIER_STOKES", CURRENT_FUNCTION);
   }
-  if (Kind_Solver == RANS && Kind_Turb_Model == TURB_MODEL::NONE){
+  if (Kind_Solver == RANS && Kind_Turb_Model == NONE){
     SU2_MPI::Error("A turbulence model must be specified with KIND_TURB_MODEL if SOLVER= RANS", CURRENT_FUNCTION);
   }
-  if (Kind_Solver == INC_RANS && Kind_Turb_Model == TURB_MODEL::NONE){
+  if (Kind_Solver == INC_RANS && Kind_Turb_Model == NONE){
     SU2_MPI::Error("A turbulence model must be specified with KIND_TURB_MODEL if SOLVER= INC_RANS", CURRENT_FUNCTION);
   }
 
@@ -3456,6 +3458,7 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
         case SURFACE_MOM_DISTORTION:
         case SURFACE_SECOND_OVER_UNIFORM:
         case SURFACE_PRESSURE_DROP:
+        case AVG_NORMAL_VEL:
         case CUSTOM_OBJFUNC:
           if (Kind_ObjFunc[iObj] != Obj_0) {
             SU2_MPI::Error(string("The following objectives can only be used for the first surface in a multi-objective \n")+
@@ -4043,18 +4046,18 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
   if (MGCycle == FULLMG_CYCLE) FinestMesh = nMGLevels;
 
   if ((Kind_Solver == NAVIER_STOKES) &&
-      (Kind_Turb_Model != TURB_MODEL::NONE))
+      (Kind_Turb_Model != NONE))
     Kind_Solver = RANS;
 
   if ((Kind_Solver == INC_NAVIER_STOKES) &&
-      (Kind_Turb_Model != TURB_MODEL::NONE))
+      (Kind_Turb_Model != NONE))
     Kind_Solver = INC_RANS;
 
   if (Kind_Solver == EULER ||
       Kind_Solver == INC_EULER ||
       Kind_Solver == NEMO_EULER ||
       Kind_Solver == FEM_EULER)
-    Kind_Turb_Model = TURB_MODEL::NONE;
+    Kind_Turb_Model = NONE;
 
   Kappa_2nd_Flow = jst_coeff[0];
   Kappa_4th_Flow = jst_coeff[1];
@@ -4435,7 +4438,7 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
     for (int i=0; i<7; ++i) eng_cyl[i] /= 12.0;
   }
 
-  if ((Kind_Turb_Model != TURB_MODEL::SA) && (Kind_Trans_Model == BC)){
+  if ((Kind_Turb_Model != SA) && (Kind_Trans_Model == BC)){
     SU2_MPI::Error("BC transition model currently only available in combination with SA turbulence model!", CURRENT_FUNCTION);
   }
 
@@ -4533,7 +4536,7 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
 
   /* --- Throw error if UQ used for any turbulence model other that SST --- */
 
-  if (Kind_Solver == RANS && Kind_Turb_Model != TURB_MODEL::SST && Kind_Turb_Model != TURB_MODEL::SST_SUST && using_uq){
+  if (Kind_Solver == RANS && Kind_Turb_Model != SST && Kind_Turb_Model != SST_SUST && using_uq){
     SU2_MPI::Error("UQ capabilities only implemented for NAVIER_STOKES solver SST turbulence model", CURRENT_FUNCTION);
   }
 
@@ -4937,6 +4940,12 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
         break;
       case NAVIER_STOKES:
         Kind_Solver = DISC_ADJ_NAVIER_STOKES;
+        break;
+      case NEMO_EULER:
+        Kind_Solver = DISC_ADJ_NEMO_EULER;
+        break;
+      case NEMO_NAVIER_STOKES:
+        Kind_Solver = DISC_ADJ_NEMO_NAVIER_STOKES;
         break;
       case INC_EULER:
         Kind_Solver = DISC_ADJ_INC_EULER;
@@ -5620,14 +5629,13 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
         if (Kind_Regime == ENUM_REGIME::INCOMPRESSIBLE) cout << "Incompressible RANS equations." << endl;
         cout << "Turbulence model: ";
         switch (Kind_Turb_Model) {
-          case TURB_MODEL::NONE: break;
-          case TURB_MODEL::SA:        cout << "Spalart Allmaras" << endl; break;
-          case TURB_MODEL::SA_NEG:    cout << "Negative Spalart Allmaras" << endl; break;
-          case TURB_MODEL::SA_E:      cout << "Edwards Spalart Allmaras" << endl; break;
-          case TURB_MODEL::SA_COMP:   cout << "Compressibility Correction Spalart Allmaras" << endl; break;
-          case TURB_MODEL::SA_E_COMP: cout << "Compressibility Correction Edwards Spalart Allmaras" << endl; break;
-          case TURB_MODEL::SST:       cout << "Menter's SST"     << endl; break;
-          case TURB_MODEL::SST_SUST:  cout << "Menter's SST with sustaining terms" << endl; break;
+          case SA:        cout << "Spalart Allmaras" << endl; break;
+          case SA_NEG:    cout << "Negative Spalart Allmaras" << endl; break;
+          case SA_E:      cout << "Edwards Spalart Allmaras" << endl; break;
+          case SA_COMP:   cout << "Compressibility Correction Spalart Allmaras" << endl; break;
+          case SA_E_COMP: cout << "Compressibility Correction Edwards Spalart Allmaras" << endl; break;
+          case SST:       cout << "Menter's SST"     << endl; break;
+          case SST_SUST:  cout << "Menter's SST with sustaining terms" << endl; break;
         }
         if (QCR) cout << "Using Quadratic Constitutive Relation, 2000 version (QCR2000)" << endl;
         if (Kind_Trans_Model == BC) cout << "Using the revised BC transition model (2020)" << endl;
@@ -5644,14 +5652,14 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
           if (uq_permute) cout << "Permuting eigenvectors" << endl;
         }
         break;
-      case NEMO_EULER:
+      case NEMO_EULER: case DISC_ADJ_NEMO_EULER:
         if (Kind_Regime == ENUM_REGIME::COMPRESSIBLE) cout << "Compressible two-temperature thermochemical non-equilibrium Euler equations." << endl;
         if(Kind_FluidModel == SU2_NONEQ){
           if ((GasModel != "N2") && (GasModel != "AIR-5") && (GasModel != "ARGON"))
           SU2_MPI::Error("The GAS_MODEL given as input is not valid. Choose one of the options: N2, AIR-5, ARGON.", CURRENT_FUNCTION);
         }
         break;
-      case NEMO_NAVIER_STOKES:
+      case NEMO_NAVIER_STOKES: case DISC_ADJ_NEMO_NAVIER_STOKES:
         if (Kind_Regime == ENUM_REGIME::COMPRESSIBLE) cout << "Compressible two-temperature thermochemical non-equilibrium Navier-Stokes equations." << endl;
         if(Kind_FluidModel == SU2_NONEQ){
           if ((GasModel != "N2") && (GasModel != "AIR-5") && (GasModel != "ARGON"))
@@ -6104,6 +6112,7 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
         case SURFACE_TOTAL_PRESSURE:     cout << "Average total pressure objective function." << endl; break;
         case SURFACE_STATIC_PRESSURE:    cout << "Average static pressure objective function." << endl; break;
         case SURFACE_STATIC_TEMPERATURE: cout << "Average static temperature objective function." << endl; break;
+        case AVG_NORMAL_VEL:             cout << "Mass-averaged normal velocity."<<endl; break;
         case SURFACE_MASSFLOW:           cout << "Mass flow rate objective function." << endl; break;
         case SURFACE_MACH:               cout << "Mach number objective function." << endl; break;
         case CUSTOM_OBJFUNC:             cout << "Custom objective function." << endl; break;
@@ -6129,7 +6138,8 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
     if ((Kind_Solver == EULER)          || (Kind_Solver == NAVIER_STOKES)          || (Kind_Solver == RANS) ||
         (Kind_Solver == INC_EULER)      || (Kind_Solver == INC_NAVIER_STOKES)      || (Kind_Solver == INC_RANS) ||
         (Kind_Solver == NEMO_EULER)     || (Kind_Solver == NEMO_NAVIER_STOKES)     ||
-        (Kind_Solver == DISC_ADJ_EULER) || (Kind_Solver == DISC_ADJ_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_RANS) ) {
+        (Kind_Solver == DISC_ADJ_EULER) || (Kind_Solver == DISC_ADJ_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_RANS) ||
+        (Kind_Solver == DISC_ADJ_NEMO_EULER) || (Kind_Solver == DISC_ADJ_NEMO_NAVIER_STOKES) ) {
 
       if (Kind_ConvNumScheme_Flow == SPACE_CENTERED) {
         if (Kind_Centered_Flow == LAX) {
@@ -6334,7 +6344,8 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
         (Kind_Solver == INC_NAVIER_STOKES) || (Kind_Solver == INC_RANS) ||
         (Kind_Solver == NEMO_NAVIER_STOKES) ||
         (Kind_Solver == DISC_ADJ_INC_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_INC_RANS) ||
-        (Kind_Solver == DISC_ADJ_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_RANS)) {
+        (Kind_Solver == DISC_ADJ_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_RANS) ||
+        (Kind_Solver == DISC_ADJ_NEMO_NAVIER_STOKES)) {
         cout << "Average of gradients with correction (viscous flow terms)." << endl;
     }
 
@@ -6441,7 +6452,8 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
         (Kind_Solver == NEMO_EULER) || (Kind_Solver == NEMO_NAVIER_STOKES) ||
         (Kind_Solver == DISC_ADJ_INC_EULER) || (Kind_Solver == DISC_ADJ_INC_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_INC_RANS) ||
         (Kind_Solver == DISC_ADJ_EULER) || (Kind_Solver == DISC_ADJ_NAVIER_STOKES) || (Kind_Solver == DISC_ADJ_RANS) ||
-        (Kind_Solver == DISC_ADJ_FEM_EULER) || (Kind_Solver == DISC_ADJ_FEM_NS) || (Kind_Solver == DISC_ADJ_FEM_RANS)) {
+        (Kind_Solver == DISC_ADJ_FEM_EULER) || (Kind_Solver == DISC_ADJ_FEM_NS) || (Kind_Solver == DISC_ADJ_FEM_RANS) ||
+        (Kind_Solver == DISC_ADJ_NEMO_EULER) || (Kind_Solver == DISC_ADJ_NEMO_NAVIER_STOKES)) {
       switch (Kind_TimeIntScheme_Flow) {
         case RUNGE_KUTTA_EXPLICIT:
           cout << "Runge-Kutta explicit method for the flow equations." << endl;
@@ -8034,6 +8046,7 @@ string CConfig::GetObjFunc_Extension(string val_filename) const {
         case SURFACE_PRESSURE_DROP:       AdjExt = "_dp";       break;
         case SURFACE_MACH:                AdjExt = "_mach";     break;
         case CUSTOM_OBJFUNC:              AdjExt = "_custom";   break;
+        case AVG_NORMAL_VEL:              AdjExt = "_vn";       break;
         case KINETIC_ENERGY_LOSS:         AdjExt = "_ke";       break;
         case TOTAL_PRESSURE_LOSS:         AdjExt = "_pl";       break;
         case FLOW_ANGLE_OUT:              AdjExt = "_fao";      break;

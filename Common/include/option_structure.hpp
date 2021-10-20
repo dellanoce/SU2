@@ -215,11 +215,13 @@ enum ANSWER {
  */
 enum AVERAGE_TYPE {
   AVERAGE_AREA = 1,     /*!< \brief Area-weighted average. */
-  AVERAGE_MASSFLUX = 2  /*!< \brief Mass-flux weighted average. */
+  AVERAGE_MASSFLUX = 2, /*!< \brief Mass-flux weighted average. */
+  AVERAGE_HYBRID =3     /*!< \brief Hybrid weighted average for aeroprop purposes. */
 };
-static const MapType<std::string, AVERAGE_TYPE> Average_Map = {
+static const MapType<string, AVERAGE_TYPE> Average_Map = {
   MakePair("AREA", AVERAGE_AREA)
   MakePair("MASSFLUX", AVERAGE_MASSFLUX)
+  MakePair("HYBRID", AVERAGE_HYBRID)
 };
 
 /*!
@@ -256,7 +258,9 @@ enum ENUM_MAIN_SOLVER {
   FEM_LES = 29,                     /*!< \brief Definition of the finite element Large Eddy Simulation Navier-Stokes' (LES) solver. */
   MULTIPHYSICS = 30,
   NEMO_EULER = 41,                  /*!< \brief Definition of the NEMO Euler solver. */
-  NEMO_NAVIER_STOKES = 42           /*!< \brief Definition of the NEMO NS solver. */
+  NEMO_NAVIER_STOKES = 42,          /*!< \brief Definition of the NEMO NS solver. */
+  DISC_ADJ_NEMO_EULER = 43,         /*!< \brief Definition of the NEMO Euler solver. */
+  DISC_ADJ_NEMO_NAVIER_STOKES = 44  /*!< \brief Definition of the NEMO NS solver. */
 };
 static const MapType<std::string, ENUM_MAIN_SOLVER> Solver_Map = {
   MakePair("NONE", NO_SOLVER)
@@ -280,6 +284,8 @@ static const MapType<std::string, ENUM_MAIN_SOLVER> Solver_Map = {
   MakePair("DISC_ADJ_EULER", DISC_ADJ_EULER)
   MakePair("DISC_ADJ_RANS", DISC_ADJ_RANS)
   MakePair("DISC_ADJ_NAVIERSTOKES", DISC_ADJ_NAVIER_STOKES)
+  MakePair("DISC_ADJ_NEMO_EULER", DISC_ADJ_NEMO_EULER)
+  MakePair("DISC_ADJ_NEMO_NAVIERSTOKES", DISC_ADJ_NEMO_NAVIER_STOKES)
   MakePair("DISC_ADJ_INC_EULER", DISC_ADJ_INC_EULER)
   MakePair("DISC_ADJ_INC_RANS", DISC_ADJ_INC_RANS)
   MakePair("DISC_ADJ_INC_NAVIERSTOKES", DISC_ADJ_INC_NAVIER_STOKES)
@@ -888,25 +894,25 @@ static const MapType<std::string, ENUM_LIMITER> Limiter_Map = {
 /*!
  * \brief Types of turbulent models
  */
-enum class TURB_MODEL {
-  NONE,      /*!< \brief No turbulence model. */
-  SA,        /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
-  SA_NEG,    /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
-  SA_E,      /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards). */
-  SA_COMP,   /*!< \brief Kind of Turbulent model (Spalart-Allmaras Compressibility Correction). */
-  SA_E_COMP, /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards with Compressibility Correction). */
-  SST,       /*!< \brief Kind of Turbulence model (Menter SST). */
-  SST_SUST   /*!< \brief Kind of Turbulence model (Menter SST with sustaining terms for free-stream preservation). */
+enum ENUM_TURB_MODEL {
+  NO_TURB_MODEL = 0, /*!< \brief No turbulence model. */
+  SA        = 1,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
+  SA_NEG    = 2,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
+  SA_E      = 3,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards). */
+  SA_COMP   = 4,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras Compressibility Correction). */
+  SA_E_COMP = 5,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards with Compressibility Correction). */
+  SST       = 6,     /*!< \brief Kind of Turbulence model (Menter SST). */
+  SST_SUST  = 7      /*!< \brief Kind of Turbulence model (Menter SST with sustaining terms for free-stream preservation). */
 };
-static const MapType<std::string, TURB_MODEL> Turb_Model_Map = {
-  MakePair("NONE", TURB_MODEL::NONE)
-  MakePair("SA", TURB_MODEL::SA)
-  MakePair("SA_NEG", TURB_MODEL::SA_NEG)
-  MakePair("SA_E", TURB_MODEL::SA_E)
-  MakePair("SA_COMP", TURB_MODEL::SA_COMP)
-  MakePair("SA_E_COMP", TURB_MODEL::SA_E_COMP)
-  MakePair("SST", TURB_MODEL::SST)
-  MakePair("SST_SUST", TURB_MODEL::SST_SUST)
+static const MapType<std::string, ENUM_TURB_MODEL> Turb_Model_Map = {
+  MakePair("NONE", NO_TURB_MODEL)
+  MakePair("SA", SA)
+  MakePair("SA_NEG", SA_NEG)
+  MakePair("SA_E", SA_E)
+  MakePair("SA_COMP", SA_COMP)
+  MakePair("SA_E_COMP", SA_E_COMP)
+  MakePair("SST", SST)
+  MakePair("SST_SUST", SST_SUST)
 };
 
 /*!
@@ -1505,6 +1511,7 @@ enum ENUM_OBJECTIVE {
   SURFACE_SECOND_OVER_UNIFORM = 55, /*!< \brief Secondary over uniformity (relative secondary strength) objective function definition. */
   SURFACE_PRESSURE_DROP = 56,   /*!< \brief Pressure drop objective function definition. */
   CUSTOM_OBJFUNC = 31,          /*!< \brief Custom objective function definition. */
+  AVG_NORMAL_VEL = 32,          /*!< \brief Mass-averaged normal velocity. */
   TOTAL_PRESSURE_LOSS = 39,
   KINETIC_ENERGY_LOSS = 40,
   TOTAL_EFFICIENCY = 41,
@@ -1557,6 +1564,7 @@ static const MapType<std::string, ENUM_OBJECTIVE> Objective_Map = {
   MakePair("SURFACE_SECOND_OVER_UNIFORM", SURFACE_SECOND_OVER_UNIFORM)
   MakePair("SURFACE_PRESSURE_DROP", SURFACE_PRESSURE_DROP)
   MakePair("CUSTOM_OBJFUNC", CUSTOM_OBJFUNC)
+  MakePair("AVG_NORMAL_VEL", AVG_NORMAL_VEL)
   MakePair("TOTAL_EFFICIENCY", TOTAL_EFFICIENCY)
   MakePair("TOTAL_STATIC_EFFICIENCY", TOTAL_STATIC_EFFICIENCY)
   MakePair("TOTAL_PRESSURE_LOSS", TOTAL_PRESSURE_LOSS)
@@ -2262,6 +2270,25 @@ static const MapType<std::string, ENUM_STREAMWISE_PERIODIC> Streamwise_Periodic_
   MakePair("PRESSURE_DROP", ENUM_STREAMWISE_PERIODIC::PRESSURE_DROP)
   MakePair("MASSFLOW",      ENUM_STREAMWISE_PERIODIC::MASSFLOW)
 };
+
+/*!
+ * \brief Types of discrete adjoint solver formulations.
+ */
+enum ENUM_DISC_ADJ_TYPE {
+    FIXED_POINT = 0,  /*!< \brief Fixed-point discrete-adjoint formulation. */
+    RESIDUALS   = 1   /*!< \brief Residual-based discrete-adjoint formulation. */
+};
+static const MapType<std::string, ENUM_DISC_ADJ_TYPE> DiscreteAdjoint_Map = {
+        MakePair("FIXED_POINT", ENUM_DISC_ADJ_TYPE::FIXED_POINT)
+        MakePair("RESIDUALS",   ENUM_DISC_ADJ_TYPE::RESIDUALS)
+};
+
+enum class ENUM_VARIABLE {
+    RESIDUALS,
+    OBJECTIVE,
+    TRACTIONS
+};
+
 
 /*!
  * \brief Container to hold Variables for streamwise Periodic flow as they are often used together in places.

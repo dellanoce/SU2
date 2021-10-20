@@ -349,4 +349,10 @@ public:
    */
   void PrintVerificationError(const CConfig* config) const final { }
 
+  /*!
+   * \brief Reset Node Infty for discrete adjoint
+   */
+  void ResetNodeInfty(su2double pressure_inf, const su2double *massfrac_inf, su2double *mvec_inf, su2double temperature_inf,
+                      su2double temperature_ve_inf, CConfig *config);
+
 };

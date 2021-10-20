@@ -1,7 +1,7 @@
-﻿/*!
- * \file CAdjFlowIncOutput.hpp
- * \brief Headers of the adjoint incompressible flow output.
- * \author T. Albring
+/*!
+ * \file CAdjNEMOCompOutput.hpp
+ * \brief Headers of the adjoint compressible NEMO output.
+ * \author T. Albring, W. Maier
  * \version 7.2.0 "Blackbird"
  *
  * SU2 Project Website: https://su2code.github.io
@@ -29,34 +29,30 @@
 
 #include "COutput.hpp"
 
-/*! \class CAdjFlowIncOutput
- *  \brief Output class for incompressible flow discrete adjoint problems.
+/*! \class CAdjNEMOCompOutput
+ *  \brief Output class for compressible flow adjoint problems.
  *  \author R. Sanchez, T. Albring.
  *  \date June 5, 2018.
  */
-class CAdjFlowIncOutput final: public COutput {
+class CAdjNEMOCompOutput final: public COutput {
 private:
 
-  unsigned short turb_model; /*!< \brief The kind of turbulence model*/
-  RADIATION_MODEL rad_model; /*!< \brief The kind of radiation model */
-  bool heat;                 /*!< \brief Boolean indicating whether have a heat problem*/
-  bool weakly_coupled_heat;  /*!< \brief Boolean indicating whether have a weakly coupled heat equation*/
   bool cont_adj;             /*!< \brief Boolean indicating whether we run a cont. adjoint problem */
   bool frozen_visc;          /*!< \brief Boolean indicating whether frozen viscosity/turbulence is used. */
+  unsigned short turb_model; /*!< \brief The kind of turbulence model*/
 
 public:
-
 
   /*!
    * \brief Constructor of the class
    * \param[in] config - Definition of the particular problem.
    */
-  CAdjFlowIncOutput(CConfig *config, unsigned short nDim);
+  CAdjNEMOCompOutput(CConfig *config, unsigned short nDim);
 
   /*!
    * \brief Destructor of the class.
    */
-  ~CAdjFlowIncOutput(void) override;
+  ~CAdjNEMOCompOutput(void) override;
 
   /*!
    * \brief Load the history output field values
@@ -105,3 +101,4 @@ public:
   bool SetInit_Residuals(const CConfig *config) override;
 
 };
+

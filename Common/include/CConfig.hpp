@@ -554,7 +554,7 @@ private:
   STRUCT_DEFORMATION Kind_Struct_Solver;   /*!< \brief Determines the geometric condition (small or large deformations) for structural analysis. */
   unsigned short Kind_DV_FEA;              /*!< \brief Kind of Design Variable for FEA problems.*/
 
-  TURB_MODEL Kind_Turb_Model;       /*!< \brief Turbulent model definition. */
+  unsigned short Kind_Turb_Model;   /*!< \brief Turbulent model definition. */
   unsigned short Kind_SGS_Model;    /*!< \brief LES SGS model definition. */
   unsigned short Kind_Trans_Model,  /*!< \brief Transition model definition. */
   Kind_ActDisk, Kind_Engine_Inflow,
@@ -977,6 +977,7 @@ private:
   long ParMETIS_edgeWgt;            /*!< \brief Load balancing weight given to edges. */
   unsigned short DirectDiff;        /*!< \brief Direct Differentation mode. */
   bool DiscreteAdjoint;                /*!< \brief AD-based discrete adjoint mode. */
+  ENUM_DISC_ADJ_TYPE Kind_DiscreteAdjoint; /*!< \brief AD-based discrete adjoint formulation. */
   su2double Const_DES;                 /*!< \brief Detached Eddy Simulation Constant. */
   WINDOW_FUNCTION Kind_WindowFct;      /*!< \brief Type of window (weight) function for objective functional. */
   unsigned short Kind_HybridRANSLES;   /*!< \brief Kind of Hybrid RANS/LES. */
@@ -3536,6 +3537,7 @@ public:
       case NEMO_EULER : case NEMO_NAVIER_STOKES:
       case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:
       case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
+      case DISC_ADJ_NEMO_EULER: case DISC_ADJ_NEMO_NAVIER_STOKES:
         return true;
       default:
         return false;
@@ -4162,7 +4164,7 @@ public:
    * \brief Get the kind of the turbulence model.
    * \return Kind of the turbulence model.
    */
-  TURB_MODEL GetKind_Turb_Model(void) const { return Kind_Turb_Model; }
+  unsigned short GetKind_Turb_Model(void) const { return Kind_Turb_Model; }
 
   /*!
    * \brief Get the kind of the transition model.
@@ -8344,6 +8346,12 @@ public:
    * \return the discrete adjoint indicator.
    */
   bool GetDiscrete_Adjoint(void) const { return DiscreteAdjoint; }
+
+  /*!
+   * \brief Get the kind of discrete adjoint solver formulation.
+   * \return the discrete adjoint indicator.
+   */
+  ENUM_DISC_ADJ_TYPE GetKind_DiscreteAdjoint(void) const { return Kind_DiscreteAdjoint; }
 
   /*!
    * \brief Get the number of subiterations while a ramp is applied.

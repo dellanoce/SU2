@@ -3527,7 +3527,7 @@ void CSolver::LoadInletProfile(CGeometry **geometry,
   auto profile_filename = config->GetInlet_FileName();
 
   unsigned short nVar_Turb = 0;
-  if (config->GetKind_Turb_Model() != TURB_MODEL::NONE) nVar_Turb = solver[MESH_0][TURB_SOL]->GetnVar();
+  if (config->GetKind_Turb_Model() != NONE) nVar_Turb = solver[MESH_0][TURB_SOL]->GetnVar();
 
   /*--- names of the columns in the profile ---*/
   vector<string> columnNames;
@@ -3613,13 +3613,15 @@ void CSolver::LoadInletProfile(CGeometry **geometry,
     if(nDim==3)  columnName << "NORMAL-Z   " << setw(24);
 
     switch (config->GetKind_Turb_Model()) {
-      case TURB_MODEL::NONE: break;
-      case TURB_MODEL::SA: case TURB_MODEL::SA_NEG: case TURB_MODEL::SA_E: case TURB_MODEL::SA_COMP: case TURB_MODEL::SA_E_COMP:
+      case NO_TURB_MODEL:
+        /*--- no turbulence model---*/
+        break;
+      case SA: case SA_NEG: case SA_E: case SA_COMP: case SA_E_COMP:
         /*--- 1-equation turbulence model: SA ---*/
         columnName << "NU_TILDE   " << setw(24);
         columnValue << config->GetNuFactor_FreeStream()*config->GetViscosity_FreeStreamND()/config->GetDensity_FreeStreamND() <<"\t";
         break;
-      case TURB_MODEL::SST: case TURB_MODEL::SST_SUST:
+      case SST: case SST_SUST:
         /*--- 2-equation turbulence model (SST) ---*/
         columnName << "TKE        " << setw(24) << "DISSIPATION";
         columnValue << config->GetTke_FreeStream() << "\t" << config->GetOmega_FreeStream() <<"\t";
@@ -4104,6 +4106,52 @@ void CSolver::SetVerificationSolution(unsigned short nDim,
     case USER_DEFINED_SOLUTION:
       VerificationSolution = new CUserDefinedSolution(nDim, nVar, MGLevel, config); break;
   }
+}
+
+void CSolver::ComputeResidual_RMS(const CGeometry *geometry, const CConfig *config){
+
+    /*--- Set Residuals to zero ---*/
+    SU2_OMP_MASTER
+    for (unsigned short iVar = 0; iVar < nVar; iVar++){
+        Residual_RMS[iVar] = 0.0;
+        Residual_Max[iVar] = 0.0;
+    }
+    END_SU2_OMP_MASTER
+
+    vector<su2double> resRMS(nVar, 0.0);
+    vector<su2double> resMax(nVar,0.0);
+    vector<const su2double*> coordMax(nVar,nullptr);
+    vector<unsigned long> idxMax(nVar,0);
+
+    /*--- Iterate over residuals and determine RMS and MAX values ---*/
+
+    SU2_OMP_FOR_(schedule(static,omp_chunk_size) SU2_NOWAIT)
+    for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
+
+        for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+            unsigned long total_index = iPoint*nVar + iVar;
+
+            su2double Res = fabs(LinSysRes[total_index]);
+            resRMS[iVar] += Res*Res;
+
+            if (Res > resMax[iVar]) {
+                resMax[iVar] = Res;
+                idxMax[iVar] = iPoint;
+                coordMax[iVar] = geometry->nodes->GetCoord(iPoint);
+            }
+        }
+    }
+    END_SU2_OMP_FOR
+    SU2_OMP_CRITICAL
+    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+        Residual_RMS[iVar] += resRMS[iVar];
+        AddRes_Max(iVar, resMax[iVar], geometry->nodes->GetGlobalIndex(idxMax[iVar]), coordMax[iVar]);
+    }
+    END_SU2_OMP_CRITICAL
+    SU2_OMP_BARRIER
+
+    /*--- Compute the root mean square residual ---*/
+    SetResidual_RMS(geometry, config);
 }
 
 void CSolver::ComputeResidual_Multizone(const CGeometry *geometry, const CConfig *config){
