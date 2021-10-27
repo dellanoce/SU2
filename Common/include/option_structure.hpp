@@ -218,7 +218,7 @@ enum AVERAGE_TYPE {
   AVERAGE_MASSFLUX = 2, /*!< \brief Mass-flux weighted average. */
   AVERAGE_HYBRID =3     /*!< \brief Hybrid weighted average for aeroprop purposes. */
 };
-static const MapType<string, AVERAGE_TYPE> Average_Map = {
+static const MapType<std::string, AVERAGE_TYPE> Average_Map = {
   MakePair("AREA", AVERAGE_AREA)
   MakePair("MASSFLUX", AVERAGE_MASSFLUX)
   MakePair("HYBRID", AVERAGE_HYBRID)

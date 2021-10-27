@@ -260,7 +260,7 @@ bool CNEMOEulerVariable::Cons2PrimVar(su2double *U, su2double *V,
   return nonPhys;
 }
 
-void CNEMOEulerVariable::Prim2ConsVar(unsigned long iPoint, su2double *V, su2double *U) {
+bool CNEMOEulerVariable::Prim2ConsVar(su2double *V, su2double *U) {
 
   /*---Useful variables ---*/
   vector<su2double> rhos;
@@ -288,8 +288,8 @@ void CNEMOEulerVariable::Prim2ConsVar(unsigned long iPoint, su2double *V, su2dou
   }
 
   /*--- Set the fluidmodel and recompute energies ---*/
-  FluidModel->SetTDStateRhosTTv( rhos, V[T_INDEX], V[TVE_INDEX]);
-  const auto& Energies = FluidModel->ComputeMixtureEnergies();
+  fluidmodel->SetTDStateRhosTTv( rhos, V[T_INDEX], V[TVE_INDEX]);
+  const auto& Energies = fluidmodel->ComputeMixtureEnergies();
 
   /*--- Set conservative energies ---*/
   U[nSpecies+nDim]   = V[RHO_INDEX]*(Energies[0]+0.5*sqvel);
