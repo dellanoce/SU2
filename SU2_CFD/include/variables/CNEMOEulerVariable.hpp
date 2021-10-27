@@ -149,12 +149,17 @@ class CNEMOEulerVariable : public CFlowVariable {
    */
   bool SetPrimVar(unsigned long iPoint, CFluidModel *FluidModel) override;
 
-   /*!
+ /*!
   * \brief Set all the primitive and secondary variables from the conserved vector.
   */
   bool Cons2PrimVar(su2double *U, su2double *V, su2double *dPdU,
                     su2double *dTdU, su2double *dTvedU, su2double *val_eves,
                     su2double *val_Cvves);
+
+ /*!
+  * \brief Set the conserved vector.
+  */
+  bool Prim2ConsVar(su2double *U, su2double *V);
 
   /*---------------------------------------*/
   /*---   Specific variable routines    ---*/
