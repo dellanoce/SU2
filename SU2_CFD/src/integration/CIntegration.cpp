@@ -275,6 +275,7 @@ void CIntegration::ComputeResiduals(CGeometry ****geometry_container, CSolver **
         case INC_EULER:
         case DISC_ADJ_INC_EULER:
         case NEMO_EULER:
+	case DISC_ADJ_NEMO_EULER:
             config->SetGlobalParam(EULER, RUNTIME_FLOW_SYS);
             break;
 
@@ -283,6 +284,7 @@ void CIntegration::ComputeResiduals(CGeometry ****geometry_container, CSolver **
         case INC_NAVIER_STOKES:
         case DISC_ADJ_INC_NAVIER_STOKES:
         case NEMO_NAVIER_STOKES:
+	case DISC_ADJ_NEMO_NAVIER_STOKES:
             config->SetGlobalParam(NAVIER_STOKES, RUNTIME_FLOW_SYS);
             break;
 

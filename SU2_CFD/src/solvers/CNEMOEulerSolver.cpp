@@ -1814,17 +1814,31 @@ void CNEMOEulerSolver::BC_Far_Field(CGeometry *geometry, CSolver **solver_contai
       if (Qn_Infty > 0.0)   {
         /*--- Outflow conditions ---*/
         node_bc->SetSolution(0, nodes->GetSolution(iPoint));
+        node_bc->SetPrimitive(0, nodes->GetSolution(iPoint));
+        //node_bc->SetdPdU(0, nodes->GetdPdU(iPoint));
+        //node_bc->SetdTdU(0, nodes->GetdTdU(iPoint));
+        //node_bc->SetdTvedU(0, nodes->GetdTvedU(iPoint));
+        //node_bc->SetEve(0, nodes->GetEve(iPoint));
+        //node_bc->SetCvve(0, nodes->GetCvve(iPoint));
+
       } else  {
         /*--- Inflow conditions ---*/
         node_bc->SetSolution(0, node_infty->GetSolution(0));
+        node_bc->SetPrimitive(0, node_infty->GetSolution(0));
+        //node_bc->SetdPdU(0, node_infty->GetdPdU(0));
+        //node_bc->SetdTdU(0, node_infty->GetdTdU(0));
+        //node_bc->SetdTvedU(0, node_infty->GetdTvedU(0));
+        //node_bc->SetEve(0, node_infty->GetEve(0));
+        //node_bc->SetCvve(0, node_infty->GetCvve(0));
       }
 
       if (tkeNeeded) Energy += GetTke_Inf();
 
       /*--- Calculate dPdU, dTdU, dTvedU, and some other primitives ---*/
-      const bool check_bc = node_bc->Cons2PrimVar(node_bc->GetSolution(0), node_bc->GetPrimitive(0),
-                                                  node_bc->GetdPdU(0), node_bc->GetdTdU(0), node_bc->GetdTvedU(0), 
-                                                  node_bc->GetEve(0), node_bc->GetCvve(0));
+      const bool check_bc=node_bc->SetPrimVar(0,FluidModel);
+      //const bool check_bc = node_bc->Cons2PrimVar(node_bc->GetSolution(0), node_bc->GetPrimitive(0),
+      //	                                  node_bc->GetdPdU(0), node_bc->GetdTdU(0), node_bc->GetdTvedU(0), 
+      //                                          node_bc->GetEve(0), node_bc->GetCvve(0));
 
       /*--- If taking free-stream conditions, enforce Mach ---*/
       if(Qn_Infty < 0.0) {

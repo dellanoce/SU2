@@ -592,6 +592,7 @@ void CDiscAdjSinglezoneDriver::Print_DirectResidual(RECORDING kind_recording){
     case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
     case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:
     case DISC_ADJ_FEM_EULER : case DISC_ADJ_FEM_NS : case DISC_ADJ_FEM_RANS :
+    case DISC_ADJ_NEMO_EULER: case DISC_ADJ_NEMO_NAVIER_STOKES: 
       cout << "log10[U(0)]: "   << log10(solver[FLOW_SOL]->GetRes_RMS(0))
            << ", log10[U(1)]: " << log10(solver[FLOW_SOL]->GetRes_RMS(1))
            << ", log10[U(2)]: " << log10(solver[FLOW_SOL]->GetRes_RMS(2)) << "." << endl;
@@ -787,18 +788,31 @@ void CDiscAdjSinglezoneDriver::Update_DirectSolution() {
     su2double Beta                   = config->GetAoS()*PI_NUMBER/180.0;
     su2double Mach                   = config->GetMach();
     su2double Temperature            = config->GetTemperature_FreeStream();
+    su2double Temperature_ve         = config->GetTemperature_ve_FreeStream();
     su2double Gas_Constant           = config->GetGas_Constant();
     su2double Gamma                  = config->GetGamma();
     su2double SoundSpeed             = sqrt(Gamma*Gas_Constant*Temperature);
 
+    const su2double *MassFrac = config->GetGas_Composition();
+    su2double *Mvec_Inf;
+    Mvec_Inf = new su2double[nDim];
+
     if (nDim == 2) {
         config->GetVelocity_FreeStreamND()[0] = cos(Alpha)*Mach*SoundSpeed/Velocity_Ref;
         config->GetVelocity_FreeStreamND()[1] = sin(Alpha)*Mach*SoundSpeed/Velocity_Ref;
+
+      Mvec_Inf[0] = cos(Alpha)*Mach;
+      Mvec_Inf[1] = sin(Alpha)*Mach;
     }
     if (nDim == 3) {
         config->GetVelocity_FreeStreamND()[0] = cos(Alpha)*cos(Beta)*Mach*SoundSpeed/Velocity_Ref;
         config->GetVelocity_FreeStreamND()[1] = sin(Beta)*Mach*SoundSpeed/Velocity_Ref;
         config->GetVelocity_FreeStreamND()[2] = sin(Alpha)*cos(Beta)*Mach*SoundSpeed/Velocity_Ref;
+
+      Mvec_Inf[0] = cos(Alpha)*cos(Beta)*Mach;
+      Mvec_Inf[1] = sin(Beta)*Mach;
+      Mvec_Inf[2] = sin(Alpha)*cos(Beta)*Mach;
+
     }
 
     /*--- Update the dual grid (without multigrid). ---*/
