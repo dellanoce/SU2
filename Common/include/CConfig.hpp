@@ -3557,6 +3557,7 @@ public:
       case NEMO_EULER : case NEMO_NAVIER_STOKES:
       case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:
       case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
+      case DISC_ADJ_NEMO_EULER : case DISC_ADJ_NEMO_NAVIER_STOKES: case DISC_ADJ_NEMO_RANS:
         return true;
       default:
         return false;
@@ -3596,6 +3597,7 @@ public:
   bool GetNEMOProblem(void) const {
     switch (Kind_Solver) {
       case NEMO_EULER : case NEMO_NAVIER_STOKES:
+      case NEMO_RANS:
         return true;
       default:
         return false;
