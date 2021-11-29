@@ -93,6 +93,7 @@ void CFluidIteration::Iterate(COutput* output, CIntegration**** integration, CGe
     case DISC_ADJ_RANS:
     case INC_RANS:
     case DISC_ADJ_INC_RANS:
+    case NEMO_RANS:
       config[val_iZone]->SetGlobalParam(RANS, RUNTIME_FLOW_SYS);
       break;
   }
@@ -105,6 +106,7 @@ void CFluidIteration::Iterate(COutput* output, CIntegration**** integration, CGe
   /*--- If the flow integration is not fully coupled, run the various single grid integrations. ---*/
 
   if ((config[val_iZone]->GetKind_Solver() == RANS || config[val_iZone]->GetKind_Solver() == DISC_ADJ_RANS ||
+       config[val_iZone]->GetKind_Solver() == NEMO_RANS ||
        config[val_iZone]->GetKind_Solver() == INC_RANS || config[val_iZone]->GetKind_Solver() == DISC_ADJ_INC_RANS) &&
       !frozen_visc) {
     /*--- Solve the turbulence model ---*/
@@ -188,8 +190,8 @@ void CFluidIteration::Update(COutput* output, CIntegration**** integration, CGeo
     /*--- Update dual time solver for the turbulence model ---*/
 
     if ((config[val_iZone]->GetKind_Solver() == RANS) || (config[val_iZone]->GetKind_Solver() == DISC_ADJ_RANS) ||
-        (config[val_iZone]->GetKind_Solver() == INC_RANS) ||
-        (config[val_iZone]->GetKind_Solver() == DISC_ADJ_INC_RANS)) {
+        (config[val_iZone]->GetKind_Solver() == NEMO_RANS) ||
+        (config[val_iZone]->GetKind_Solver() == INC_RANS) || (config[val_iZone]->GetKind_Solver() == DISC_ADJ_INC_RANS)) {
       integration[val_iZone][val_iInst][TURB_SOL]->SetDualTime_Solver(geometry[val_iZone][val_iInst][MESH_0],
                                                                       solver[val_iZone][val_iInst][MESH_0][TURB_SOL],
                                                                       config[val_iZone], MESH_0);

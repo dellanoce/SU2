@@ -1382,6 +1382,10 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
       ns = compressible = turbulent = true;
       transition = (config->GetKind_Trans_Model() == LM); break;
 
+    case NEMO_RANS:
+      NEMO_ns = compressible = turbulent = true;
+      transition = (config->GetKind_Trans_Model() == LM); break;
+
     case INC_EULER:
     case DISC_ADJ_INC_EULER:
       euler = incompressible = true; break;
@@ -2980,6 +2984,12 @@ void CFluidDriver::Transfer_Data(unsigned short donorZone, unsigned short target
       geometry_container[donorZone][INST_0][MESH_0], geometry_container[targetZone][INST_0][MESH_0],
       config_container[donorZone], config_container[targetZone]);
   }
+  if (config_container[targetZone]->GetKind_Solver() == NEMO_RANS) {
+    interface_container[donorZone][targetZone]->BroadcastData(*interpolator_container[donorZone][targetZone].get(),
+      solver_container[donorZone][INST_0][MESH_0][TURB_SOL], solver_container[targetZone][INST_0][MESH_0][TURB_SOL],
+      geometry_container[donorZone][INST_0][MESH_0], geometry_container[targetZone][INST_0][MESH_0],
+      config_container[donorZone], config_container[targetZone]);
+  }
 }
 
 void CFluidDriver::Update() {
@@ -3026,8 +3036,7 @@ bool CFluidDriver::Monitor(unsigned long ExtIter) {
 
   switch (config_container[ZONE_0]->GetKind_Solver()) {
     case EULER: case NAVIER_STOKES: case RANS:
-      StopCalc = integration_container[ZONE_0][INST_0][FLOW_SOL]->GetConvergence(); break;
-    case NEMO_EULER: case NEMO_NAVIER_STOKES:
+    case NEMO_EULER: case NEMO_NAVIER_STOKES: case NEMO_RANS:
       StopCalc = integration_container[ZONE_0][INST_0][FLOW_SOL]->GetConvergence(); break;
     case HEAT_EQUATION:
       StopCalc = integration_container[ZONE_0][INST_0][HEAT_SOL]->GetConvergence(); break;
@@ -3288,7 +3297,7 @@ bool CTurbomachineryDriver::Monitor(unsigned long ExtIter) {
   switch (config_container[ZONE_0]->GetKind_Solver()) {
   case EULER: case NAVIER_STOKES: case RANS:
   case INC_EULER: case INC_NAVIER_STOKES: case INC_RANS:
-  case NEMO_EULER: case NEMO_NAVIER_STOKES:
+  case NEMO_EULER: case NEMO_NAVIER_STOKES: case NEMO_RANS:
     StopCalc = integration_container[ZONE_0][INST_0][FLOW_SOL]->GetConvergence(); break;
   case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
   case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:

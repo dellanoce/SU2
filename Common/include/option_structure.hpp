@@ -256,7 +256,8 @@ enum ENUM_MAIN_SOLVER {
   FEM_LES = 29,                     /*!< \brief Definition of the finite element Large Eddy Simulation Navier-Stokes' (LES) solver. */
   MULTIPHYSICS = 30,
   NEMO_EULER = 41,                  /*!< \brief Definition of the NEMO Euler solver. */
-  NEMO_NAVIER_STOKES = 42           /*!< \brief Definition of the NEMO NS solver. */
+  NEMO_NAVIER_STOKES = 42,          /*!< \brief Definition of the NEMO NS solver. */
+  NEMO_RANS = 43                    /*!< \brief Definition of the NEMO RANS solver. */
 };
 static const MapType<std::string, ENUM_MAIN_SOLVER> Solver_Map = {
   MakePair("NONE", NO_SOLVER)
@@ -272,6 +273,7 @@ static const MapType<std::string, ENUM_MAIN_SOLVER> Solver_Map = {
   MakePair("FEM_LES", FEM_LES)
   MakePair("NEMO_EULER",NEMO_EULER)
   MakePair("NEMO_NAVIER_STOKES",NEMO_NAVIER_STOKES)
+  MakePair("NEMO_RANS",NEMO_RANS)
   MakePair("ADJ_EULER", ADJ_EULER)
   MakePair("ADJ_NAVIER_STOKES", ADJ_NAVIER_STOKES)
   MakePair("ADJ_RANS", ADJ_RANS )
@@ -603,12 +605,14 @@ MakePair("ONESPECIES", ONESPECIES)
 enum class TRANSCOEFFMODEL {
   WILKE,
   GUPTAYOS,
-  CHAPMANN_ENSKOG
+  CHAPMANN_ENSKOG,
+  DEBUG
 };
 static const MapType<std::string, TRANSCOEFFMODEL> TransCoeffModel_Map = {
 MakePair("WILKE", TRANSCOEFFMODEL::WILKE)
 MakePair("GUPTA-YOS", TRANSCOEFFMODEL::GUPTAYOS)
 MakePair("CHAPMANN-ENSKOG", TRANSCOEFFMODEL::CHAPMANN_ENSKOG)
+MakePair("DEBUG", TRANSCOEFFMODEL::DEBUG)
 };
 
 /*!
