@@ -257,14 +257,10 @@ enum class MAIN_SOLVER {
   MULTIPHYSICS,
   NEMO_EULER,                  /*!< \brief Definition of the NEMO Euler solver. */
   NEMO_NAVIER_STOKES,          /*!< \brief Definition of the NEMO NS solver. */
-
   NEMO_RANS,                   /*!< \brief Definition of the NEMO RANS solver. */
   DISC_ADJ_NEMO_EULER,         /*!< \brief Definition of the discrete adjoint NEMO Euler solver. */
   DISC_ADJ_NEMO_RANS,          /*!< \brief Definition of the discrete adjoint NEMO Reynolds-averaged Navier-Stokes' (RANS) solver. */
-  DISC_ADJ_NEMO_NAVIER_STOKES,  /*!< \brief Definition of the discrete adjoint NEMO Navier-Stokes' solver. */
-
-  NEMO_RANS,                    /*!< \brief Definition of the NEMO RANS solver. */
-
+  DISC_ADJ_NEMO_NAVIER_STOKES, /*!< \brief Definition of the discrete adjoint NEMO Navier-Stokes' solver. */
 };
 static const MapType<std::string, MAIN_SOLVER> Solver_Map = {
   MakePair("NONE", MAIN_SOLVER::NONE)
