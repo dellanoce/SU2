@@ -1218,8 +1218,6 @@ void CNEMOEulerSolver::SetNondimensionalization(CConfig *config, unsigned short 
   Omega_FreeStreamND = Density_FreeStreamND*Tke_FreeStreamND/(Viscosity_FreeStreamND*config->GetTurb2LamViscRatio_FreeStream());
   config->SetOmega_FreeStreamND(Omega_FreeStreamND);
 
-  /*--- Initialize the dimensionless Fluid Model that will be used to solve the dimensionless problem ---*/
-
   if (viscous) {
 
     /*--- Constant viscosity model ---*/
@@ -1235,6 +1233,7 @@ void CNEMOEulerSolver::SetNondimensionalization(CConfig *config, unsigned short 
 
   }
 
+  /*--- Initialize the dimensionless Fluid Model that will be used to solve the dimensionless problem ---*/
   Energy_FreeStreamND = energies[0] + 0.5*ModVel_FreeStreamND *ModVel_FreeStreamND;
   if (tkeNeeded) { Energy_FreeStreamND += Tke_FreeStreamND; }; config->SetEnergy_FreeStreamND(Energy_FreeStreamND);
 

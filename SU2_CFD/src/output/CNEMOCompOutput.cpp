@@ -4,22 +4,12 @@
  * \author W. Maier, R. Sanchez
  * \version 7.2.1 "Blackbird"
  *
- * The current SU2 release has been coordinated by the
- * SU2 International Developers Society <www.su2devsociety.org>
- * with selected contributions from the open-source community.
+ * SU2 Project Website: https://su2code.github.io
  *
- * The main research teams contributing to the current release are:
- *  - Prof. Juan J. Alonso's group at Stanford University.
- *  - Prof. Piero Colonna's group at Delft University of Technology.
- *  - Prof. Nicolas R. Gauger's group at Kaiserslautern University of Technology.
- *  - Prof. Alberto Guardone's group at Polytechnic University of Milan.
- *  - Prof. Rafael Palacios' group at Imperial College London.
- *  - Prof. Vincent Terrapon's group at the University of Liege.
- *  - Prof. Edwin van der Weide's group at the University of Twente.
- *  - Lab. of New Concepts in Aeronautics at Tech. Institute of Aeronautics.
+ * The SU2 Project is maintained by the SU2 Foundation
+ * (http://su2foundation.org)
  *
- * Copyright 2012-2018, Francisco D. Palacios, Thomas D. Economon,
- *                      Tim Albring, and the SU2 contributors.
+ * Copyright 2012-2021, SU2 Contributors (cf. AUTHORS.md)
  *
  * SU2 is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,9 +30,9 @@
 #include "../../../Common/include/geometry/CGeometry.hpp"
 #include "../../include/solvers/CSolver.hpp"
 
-CNEMOCompOutput::CNEMOCompOutput(CConfig *config, unsigned short nDim) : CFlowOutput(config, nDim, false) {
+CNEMOCompOutput::CNEMOCompOutput(const CConfig *config, unsigned short nDim) : CFlowOutput(config, nDim, false) {
 
-  turb_model    = config->GetKind_Turb_Model();
+  turb_model = config->GetKind_Turb_Model();
   nSpecies      = config->GetnSpecies();
 
   /*--- Set the default history fields if nothing is set in the config file ---*/
@@ -118,6 +108,7 @@ CNEMOCompOutput::CNEMOCompOutput(CConfig *config, unsigned short nDim) : CFlowOu
 void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
 
   /// BEGIN_GROUP: RMS_RES, DESCRIPTION: The root-mean-square residuals of the SOLUTION variables.
+  /// DESCRIPTION: Root-mean square residual of the species densities.
   for(iSpecies = 0; iSpecies < nSpecies; iSpecies++)
     AddHistoryOutput("RMS_DENSITY_" + std::to_string(iSpecies), "rms[Rho_" + std::to_string(iSpecies) + "]",   ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the species density " + std::to_string(iSpecies) + ".", HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Root-mean square residual of the momentum x-component.
@@ -130,7 +121,7 @@ void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
   AddHistoryOutput("RMS_ENERGY",     "rms[RhoE]", ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the energy.", HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Root-mean square residual of the energy.
   AddHistoryOutput("RMS_ENERGY_VE",  "rms[RhoEve]", ScreenOutputFormat::FIXED, "RMS_RES", "Root-mean square residual of the energy.", HistoryFieldType::RESIDUAL);
-  AddHistoryOutputFields_TurbRMS_RES(config);
+  AddHistoryOutputFields_ScalarRMS_RES(config);
   /// END_GROUP
 
   /// BEGIN_GROUP: MAX_RES, DESCRIPTION: The maximum residuals of the SOLUTION variables.
@@ -144,7 +135,8 @@ void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
   if (nDim == 3) AddHistoryOutput("MAX_MOMENTUM-Z", "max[RhoW]", ScreenOutputFormat::FIXED,"MAX_RES", "Maximum residual of the z-component.", HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Maximum residual of the energy.
   AddHistoryOutput("MAX_ENERGY",     "max[RhoE]", ScreenOutputFormat::FIXED,   "MAX_RES", "Maximum residual of the energy.", HistoryFieldType::RESIDUAL);
-  AddHistoryOutputFields_TurbMAX_RES(config);
+
+  AddHistoryOutputFields_ScalarMAX_RES(config);
   /// END_GROUP
 
   /// BEGIN_GROUP: BGS_RES, DESCRIPTION: The block Gauss Seidel residuals of the SOLUTION variables.
@@ -158,7 +150,8 @@ void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
   if (nDim == 3) AddHistoryOutput("BGS_MOMENTUM-Z", "bgs[RhoW]", ScreenOutputFormat::FIXED, "BGS_RES", "BGS residual of the z-component.",  HistoryFieldType::RESIDUAL);
   /// DESCRIPTION: Maximum residual of the energy.
   AddHistoryOutput("BGS_ENERGY",     "bgs[RhoE]", ScreenOutputFormat::FIXED,   "BGS_RES", "BGS residual of the energy.",  HistoryFieldType::RESIDUAL);
-  AddHistoryOutputFields_TurbBGS_RES(config);
+
+  AddHistoryOutputFields_ScalarBGS_RES(config);
   /// END_GROUP
 
   vector<string> Marker_Monitoring;
@@ -176,8 +169,7 @@ void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
   /// DESCRIPTION: Linear solver iterations
   AddHistoryOutput("LINSOL_ITER", "Linear_Solver_Iterations", ScreenOutputFormat::INTEGER, "LINSOL", "Number of iterations of the linear solver.");
   AddHistoryOutput("LINSOL_RESIDUAL", "LinSolRes", ScreenOutputFormat::FIXED, "LINSOL", "Residual of the linear solver.");
-  AddHistoryOutputFields_TurbLinsol(config);
-
+  AddHistoryOutputFields_ScalarLinsol(config);
 
   /// BEGIN_GROUP: ENGINE_OUTPUT, DESCRIPTION: Engine output
   /// DESCRIPTION: Aero CD drag
@@ -211,11 +203,15 @@ void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
   AddHistoryOutput("MAXIMUM_HEATFLUX", "maxHF", ScreenOutputFormat::SCIENTIFIC, "HEAT", "Total maximum heatflux on all surfaces set with MARKER_MONITORING.", HistoryFieldType::COEFFICIENT);
   /// END_GROUP
 
+  AddHistoryOutput("MIN_DELTA_TIME", "Min DT", ScreenOutputFormat::SCIENTIFIC, "CFL_NUMBER", "Current minimum local time step");
+  AddHistoryOutput("MAX_DELTA_TIME", "Max DT", ScreenOutputFormat::SCIENTIFIC, "CFL_NUMBER", "Current maximum local time step");
+
   AddHistoryOutput("MIN_CFL", "Min CFL", ScreenOutputFormat::SCIENTIFIC, "CFL_NUMBER", "Current minimum of the local CFL numbers");
   AddHistoryOutput("MAX_CFL", "Max CFL", ScreenOutputFormat::SCIENTIFIC, "CFL_NUMBER", "Current maximum of the local CFL numbers");
   AddHistoryOutput("AVG_CFL", "Avg CFL", ScreenOutputFormat::SCIENTIFIC, "CFL_NUMBER", "Current average of the local CFL numbers");
 
   ///   /// BEGIN_GROUP: FIXED_CL, DESCRIPTION: Relevant outputs for the Fixed CL mode
+
   if (config->GetFixed_CL_Mode()){
     /// DESCRIPTION: Difference between current and target CL
     AddHistoryOutput("DELTA_CL", "Delta_CL", ScreenOutputFormat::SCIENTIFIC, "FIXED_CL", "Difference between Target CL and current CL", HistoryFieldType::COEFFICIENT);
@@ -242,9 +238,17 @@ void CNEMOCompOutput::SetHistoryOutputFields(CConfig *config){
 
   AddAerodynamicCoefficients(config);
 
+  if (config->GetViscous()) {
+    AddHistoryOutput("BUFFET", "Buffet", ScreenOutputFormat::SCIENTIFIC, "AERO_COEFF", "Buffet sensor", HistoryFieldType::COEFFICIENT);
+  }
+
   /*--- Add Cp diff fields ---*/
 
   Add_CpInverseDesignOutput();
+
+  /*--- Add nearfield diff fields ---*/
+
+  Add_NearfieldInverseDesignOutput();
 
 }
 
@@ -270,7 +274,7 @@ void CNEMOCompOutput::SetVolumeOutputFields(CConfig *config){
   for(iSpecies = 0; iSpecies < nSpecies; iSpecies++)
     AddVolumeOutput("MASSFRAC_" + std::to_string(iSpecies),  "MassFrac_" + std::to_string(iSpecies),  "AUXILIARY", "MassFrac_" + std::to_string(iSpecies));
 
-  SetVolumeOutputFields_TurbSolution(config);
+  SetVolumeOutputFields_ScalarSolution(config);
 
   // Grid velocity
   if (gridMovement){
@@ -288,17 +292,16 @@ void CNEMOCompOutput::SetVolumeOutputFields(CConfig *config){
   AddVolumeOutput("MACH",        "Mach",                    "PRIMITIVE", "Mach number");
   AddVolumeOutput("PRESSURE_COEFF", "Pressure_Coefficient", "PRIMITIVE", "Pressure coefficient");
 
-  if (config->GetKind_Solver() == MAIN_SOLVER::NEMO_NAVIER_STOKES){
+  if (config->GetViscous()) {
     AddVolumeOutput("LAMINAR_VISCOSITY", "Laminar_Viscosity", "PRIMITIVE", "Laminar viscosity");
 
     AddVolumeOutput("SKIN_FRICTION-X", "Skin_Friction_Coefficient_x", "PRIMITIVE", "x-component of the skin friction vector");
     AddVolumeOutput("SKIN_FRICTION-Y", "Skin_Friction_Coefficient_y", "PRIMITIVE", "y-component of the skin friction vector");
     if (nDim == 3)
-     AddVolumeOutput("SKIN_FRICTION-Z", "Skin_Friction_Coefficient_z", "PRIMITIVE", "z-component of the skin friction vector");
+      AddVolumeOutput("SKIN_FRICTION-Z", "Skin_Friction_Coefficient_z", "PRIMITIVE", "z-component of the skin friction vector");
 
     AddVolumeOutput("HEAT_FLUX", "Heat_Flux", "PRIMITIVE", "Heat-flux");
     AddVolumeOutput("Y_PLUS", "Y_Plus", "PRIMITIVE", "Non-dim. wall distance (Y-Plus)");
-
   }
 
   //Residuals
@@ -311,19 +314,20 @@ void CNEMOCompOutput::SetVolumeOutputFields(CConfig *config){
   AddVolumeOutput("RES_ENERGY",    "Residual_Energy",    "RESIDUAL", "Residual of the energy");
   AddVolumeOutput("RES_ENERGY_VE", "Residual_Energy_ve", "RESIDUAL", "Residual of the energy_ve");
 
-  SetVolumeOutputFields_TurbResidual(config);
+  SetVolumeOutputFields_ScalarResidual(config);
 
   if (config->GetKind_SlopeLimit_Flow() != NO_LIMITER && config->GetKind_SlopeLimit_Flow() != VAN_ALBADA_EDGE) {
-    // Limiter values
+    AddVolumeOutput("LIMITER_VELOCITY-X", "Limiter_Velocity_x", "LIMITER", "Limiter value of the x-velocity");
+    AddVolumeOutput("LIMITER_VELOCITY-Y", "Limiter_Velocity_y", "LIMITER", "Limiter value of the y-velocity");
+    if (nDim == 3) {
+      AddVolumeOutput("LIMITER_VELOCITY-Z", "Limiter_Velocity_z", "LIMITER", "Limiter value of the z-velocity");
+    }
+    AddVolumeOutput("LIMITER_PRESSURE", "Limiter_Pressure", "LIMITER", "Limiter value of the pressure");
     AddVolumeOutput("LIMITER_DENSITY", "Limiter_Density", "LIMITER", "Limiter value of the density");
-    AddVolumeOutput("LIMITER_MOMENTUM-X", "Limiter_Momentum_x", "LIMITER", "Limiter value of the x-momentum");
-    AddVolumeOutput("LIMITER_MOMENTUM-Y", "Limiter_Momentum_y", "LIMITER", "Limiter value of the y-momentum");
-    if (nDim == 3)
-      AddVolumeOutput("LIMITER_MOMENTUM-Z", "Limiter_Momentum_z", "LIMITER", "Limiter value of the z-momentum");
-    AddVolumeOutput("LIMITER_ENERGY", "Limiter_Energy", "LIMITER", "Limiter value of the energy");
+    AddVolumeOutput("LIMITER_ENTHALPY", "Limiter_Enthalpy", "LIMITER", "Limiter value of the enthalpy");
   }
 
-  SetVolumeOutputFields_TurbLimiter(config);
+  SetVolumeOutputFields_ScalarLimiter(config);
 
   AddCommonFVMOutputs(config);
 
@@ -335,7 +339,7 @@ void CNEMOCompOutput::SetVolumeOutputFields(CConfig *config){
 void CNEMOCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint){
 
   const auto* Node_Flow = solver[FLOW_SOL]->GetNodes();
-  auto* Node_Geo = geometry->nodes;
+  auto* Node_Geo  = geometry->nodes;
   const auto nSpecies = config->GetnSpecies();
 
   LoadCoordinates(Node_Geo->GetCoord(iPoint), iPoint);
@@ -376,7 +380,7 @@ void CNEMOCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolv
   su2double factor = 1.0/(0.5*solver[FLOW_SOL]->GetDensity_Inf()*VelMag);
   SetVolumeOutputValue("PRESSURE_COEFF", iPoint, (Node_Flow->GetPressure(iPoint) - solver[FLOW_SOL]->GetPressure_Inf())*factor);
 
-  if (config->GetKind_Solver() == MAIN_SOLVER::NEMO_NAVIER_STOKES){
+  if (config->GetKind_Solver() == MAIN_SOLVER::NEMO_RANS || config->GetKind_Solver() == MAIN_SOLVER::NEMO_NAVIER_STOKES){
     SetVolumeOutputValue("LAMINAR_VISCOSITY", iPoint, Node_Flow->GetLaminarViscosity(iPoint));
   }
 
@@ -395,22 +399,22 @@ void CNEMOCompOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolv
   }
 
   if (config->GetKind_SlopeLimit_Flow() != NO_LIMITER && config->GetKind_SlopeLimit_Flow() != VAN_ALBADA_EDGE) {
-    SetVolumeOutputValue("LIMITER_DENSITY",    iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 0));
-    SetVolumeOutputValue("LIMITER_MOMENTUM-X", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 1));
-    SetVolumeOutputValue("LIMITER_MOMENTUM-Y", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 2));
+    SetVolumeOutputValue("LIMITER_VELOCITY-X", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 1));
+    SetVolumeOutputValue("LIMITER_VELOCITY-Y", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 2));
     if (nDim == 3){
-      SetVolumeOutputValue("LIMITER_MOMENTUM-Z", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 3));
-      SetVolumeOutputValue("LIMITER_ENERGY",     iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 4));
-    } else {
-      SetVolumeOutputValue("LIMITER_ENERGY", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 3));
+      SetVolumeOutputValue("LIMITER_VELOCITY-Z", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, 3));
     }
+    SetVolumeOutputValue("LIMITER_PRESSURE", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, nDim+1));
+    SetVolumeOutputValue("LIMITER_DENSITY", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, nDim+2));
+    SetVolumeOutputValue("LIMITER_ENTHALPY", iPoint, Node_Flow->GetLimiter_Primitive(iPoint, nDim+3));
   }
 
-  LoadVolumeData_Turb(config, solver, geometry, iPoint);
+
+  LoadVolumeData_Scalar(config, solver, geometry, iPoint);
 
   LoadCommonFVMOutputs(config, geometry, iPoint);
 
-  if (config->GetTime_Domain()) {
+  if (config->GetTime_Domain()){
     LoadTimeAveragedData(iPoint, Node_Flow);
   }
 }
@@ -456,6 +460,8 @@ void CNEMOCompOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSol
   }
   SetHistoryOutputValue("TOTAL_HEATFLUX",   NEMO_solver->GetTotal_HeatFlux());
   SetHistoryOutputValue("MAXIMUM_HEATFLUX", NEMO_solver->GetTotal_MaxHeatFlux());
+  SetHistoryOutputValue("MIN_DELTA_TIME", flow_solver->GetMin_Delta_Time());
+  SetHistoryOutputValue("MAX_DELTA_TIME", flow_solver->GetMax_Delta_Time());
 
   SetHistoryOutputValue("MIN_CFL", NEMO_solver->GetMin_CFL_Local());
   SetHistoryOutputValue("MAX_CFL", NEMO_solver->GetMax_CFL_Local());
@@ -478,11 +484,11 @@ void CNEMOCompOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSol
     SetHistoryOutputValue("CL_DRIVER_COMMAND", NEMO_solver->GetAoA_inc());
   }
 
-  LoadHistoryData_Turb(config, solver);
+  LoadHistoryData_Scalar(config, solver);
 
   /*--- Set the analyse surface history values --- */
 
-  SetAnalyzeSurface(NEMO_solver, geometry, config, false);
+  SetAnalyzeSurface(solver, geometry, config, false);
 
   /*--- Set aeroydnamic coefficients --- */
 
