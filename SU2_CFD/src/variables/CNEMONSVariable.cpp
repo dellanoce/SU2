@@ -99,7 +99,7 @@ bool CNEMONSVariable::SetPrimVar(unsigned long iPoint, su2double eddy_visc, su2d
 
   SetVelocity2(iPoint);
 
-  Ds = fluidmodel->GetDiffusionCoeff();
+  const auto& Ds = fluidmodel->GetDiffusionCoeff();
   for (auto iSpecies = 0u; iSpecies < nSpecies; iSpecies++)
     DiffusionCoeff(iPoint, iSpecies) = Ds[iSpecies];
 
@@ -108,7 +108,7 @@ bool CNEMONSVariable::SetPrimVar(unsigned long iPoint, su2double eddy_visc, su2d
 
   su2double* val_eves = GetEve(iPoint);
   const auto& hs = fluidmodel->ComputeSpeciesEnthalpy(T, Tve, val_eves);
-  for (iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+  for (auto iSpecies = 0u; iSpecies < nSpecies; iSpecies++)
     Enthalpys(iPoint, iSpecies) = hs[iSpecies];
   
   LaminarViscosity(iPoint) = fluidmodel->GetViscosity();
