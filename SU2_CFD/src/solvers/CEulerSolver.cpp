@@ -7074,6 +7074,111 @@ void CEulerSolver::BC_Supersonic_Inlet(CGeometry *geometry, CSolver **solver_con
 void CEulerSolver::BC_Source(CGeometry *geometry, CSolver **solver_container,
                                         CNumerics *conv_numerics, CNumerics *visc_numerics,
                                         CConfig *config, unsigned short val_marker) {
+
+  unsigned short iDim;
+  unsigned long iVertex, iPoint;
+  su2double *V_inlet, *V_domain;
+
+  su2double Density, Energy, Velocity2;
+  su2double Gas_Constant = config->GetGas_ConstantND();
+
+  bool implicit = (config->GetKind_TimeIntScheme() == EULER_IMPLICIT);
+  string Marker_Tag = config->GetMarker_All_TagBound(val_marker);
+  bool tkeNeeded = (config->GetKind_Turb_Model() == TURB_MODEL::SST) || (config->GetKind_Turb_Model() == TURB_MODEL::SST_SUST);
+  su2double *Normal = new su2double[nDim];
+  su2double *Velocity = new su2double[nDim];
+
+  /*--- Supersonic inlet flow: there are no outgoing characteristics,
+   so all flow variables can be imposed at the inlet.
+   First, retrieve the specified values for the primitive variables. ---*/
+
+  auto Temperature = config->GetInlet_Temperature(Marker_Tag);
+  auto Pressure    = config->GetInlet_Pressure(Marker_Tag);
+  auto Vel         = config->GetInlet_Velocity(Marker_Tag);
+
+  /*--- Non-dim. the inputs if necessary. ---*/
+
+  Temperature /= config->GetTemperature_Ref();
+  Pressure    /= config->GetPressure_Ref();
+  for (iDim = 0; iDim < nDim; iDim++)
+    Velocity[iDim] = Vel[iDim] / config->GetVelocity_Ref();
+  su2double Vel = GeometryToolbox::SquaredNorm(nDim,Velocity);
+
+  /*--- Density at the inlet from the gas law ---*/
+
+  Density = Pressure/(Gas_Constant*Temperature);
+
+  /*--- Compute the energy from the specified state ---*/
+
+  Velocity2 = 0.0;
+  for (iDim = 0; iDim < nDim; iDim++)
+    Velocity2 += Velocity[iDim]*Velocity[iDim];
+  Energy = Pressure/(Density*Gamma_Minus_One)+0.5*Velocity2;
+  if (tkeNeeded) Energy += GetTke_Inf();
+
+  /*--- Loop over all the vertices on this boundary marker ---*/
+
+  SU2_OMP_FOR_DYN(OMP_MIN_SIZE)
+  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
+
+    /*--- Allocate the value at the outlet ---*/
+
+    V_inlet = GetCharacPrimVar(val_marker, iVertex);
+
+    /*--- Primitive variables, using the derived quantities ---*/
+    // Velocity done depending on the normals
+    V_inlet[0] = Temperature;
+    V_inlet[nDim+1] = Pressure;
+    V_inlet[nDim+2] = Density;
+    V_inlet[nDim+3] = Energy + Pressure/Density;
+
+    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
+
+    /*--- Check if the node belongs to the domain (i.e, not a halo node) ---*/
+
+    if (geometry->nodes->GetDomain(iPoint)) {
+
+      /*--- Current solution at this boundary node ---*/
+
+      V_domain = nodes->GetPrimitive(iPoint);
+
+      /*--- Normal vector for this vertex (negate for outward convention) ---*/
+
+      geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
+      for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
+
+      /*--- Finish velocity computation ---*/
+      for (iDim = 0; iDim < nDim; iDim++)
+        V_inlet[iDim+1] = Vel*Normal[iDim];
+
+      /*--- Set various quantities in the solver class ---*/
+
+      conv_numerics->SetNormal(Normal);
+      conv_numerics->SetPrimitive(V_domain, V_inlet);
+
+      if (dynamic_grid)
+        conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint),
+                                  geometry->nodes->GetGridVel(iPoint));
+
+      /*--- Compute the residual using an upwind scheme ---*/
+
+      auto residual = conv_numerics->ComputeResidual(config);
+
+      LinSysRes.AddBlock(iPoint, residual);
+
+      /*--- Jacobian contribution for implicit integration ---*/
+
+      if (implicit)
+        Jacobian.AddBlock2Diag(iPoint, residual.jacobian_i);
+
+    }
+  }
+  END_SU2_OMP_FOR
+
+  /*--- Free locally allocated memory ---*/
+
+  delete [] Normal;
+  delete [] Velocity;
 }
 
 void CEulerSolver::BC_Supersonic_Outlet(CGeometry *geometry, CSolver **solver_container,
