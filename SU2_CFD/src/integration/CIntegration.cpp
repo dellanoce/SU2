@@ -118,6 +118,9 @@ void CIntegration::Space_Integration(CGeometry *geometry,
       case SUPERSONIC_INLET:
         solver_container[MainSolver]->BC_Supersonic_Inlet(geometry, solver_container, conv_bound_numerics, visc_bound_numerics, config, iMarker);
         break;
+      case SOURCE:
+        solver_container[MainSolver]->BC_Source(geometry, solver_container, conv_bound_numerics, visc_bound_numerics, config, iMarker);
+        break;
       case OUTLET_FLOW:
         solver_container[MainSolver]->BC_Outlet(geometry, solver_container, conv_bound_numerics, visc_bound_numerics, config, iMarker);
         break;

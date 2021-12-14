@@ -7071,6 +7071,11 @@ void CEulerSolver::BC_Supersonic_Inlet(CGeometry *geometry, CSolver **solver_con
 
 }
 
+void CEulerSolver::BC_Source(CGeometry *geometry, CSolver **solver_container,
+                                        CNumerics *conv_numerics, CNumerics *visc_numerics,
+                                        CConfig *config, unsigned short val_marker) {
+}
+
 void CEulerSolver::BC_Supersonic_Outlet(CGeometry *geometry, CSolver **solver_container,
                                         CNumerics *conv_numerics, CNumerics *visc_numerics,
                                         CConfig *config, unsigned short val_marker) {

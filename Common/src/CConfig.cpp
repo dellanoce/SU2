@@ -845,6 +845,7 @@ void CConfig::SetPointersNull(void) {
   Marker_ZoneInterface        = nullptr;    Marker_All_ZoneInterface    = nullptr;    Marker_Riemann             = nullptr;
   Marker_Fluid_InterfaceBound = nullptr;    Marker_CHTInterface         = nullptr;    Marker_Damper              = nullptr;
   Marker_Emissivity           = nullptr;    Marker_HeatTransfer         = nullptr;
+  Marker_Source               = nullptr;
 
     /*--- Boundary Condition settings ---*/
 
@@ -1556,6 +1557,9 @@ void CConfig::SetConfig_Options() {
   /*!\brief MARKER_SUPERSONIC_INLET  \n DESCRIPTION: Supersonic inlet boundary marker(s)
    * \n   Format: (inlet marker, temperature, static pressure, velocity_x,   velocity_y, velocity_z, ... ), i.e. primitive variables specified. \ingroup Config*/
   addInletOption("MARKER_SUPERSONIC_INLET", nMarker_Supersonic_Inlet, Marker_Supersonic_Inlet, Inlet_Temperature, Inlet_Pressure, Inlet_Velocity);
+  /*!\brief MARKER_SOURCE  \n DESCRIPTION: Supersonic source boundary marker(s)
+  * \n   Format: (source marker, temperature, static pressure, velocity), i.e. primitive variables specified. \ingroup Config*/
+  addInletOption("MARKER_SOURCE", nMarker_Source, Marker_Source, Source_Temperature, Source_Pressure, Source_Velocity);
   /*!\brief MARKER_SUPERSONIC_OUTLET \n DESCRIPTION: Supersonic outlet boundary marker(s) \ingroup Config*/
   addStringListOption("MARKER_SUPERSONIC_OUTLET", nMarker_Supersonic_Outlet, Marker_Supersonic_Outlet);
   /*!\brief MARKER_OUTLET  \n DESCRIPTION: Outlet boundary marker(s)\n
@@ -5254,7 +5258,7 @@ void CConfig::SetMarkers(SU2_COMPONENT val_software) {
   iMarker_DV, iMarker_Moving, iMarker_PyCustom, iMarker_Supersonic_Inlet, iMarker_Supersonic_Outlet,
   iMarker_Clamped, iMarker_ZoneInterface, iMarker_CHTInterface, iMarker_Load_Dir, iMarker_Disp_Dir, iMarker_Load_Sine,
   iMarker_Fluid_Load, iMarker_Deform_Mesh, iMarker_Deform_Mesh_Sym_Plane,
-  iMarker_ActDiskInlet, iMarker_ActDiskOutlet,
+  iMarker_ActDiskInlet, iMarker_ActDiskOutlet, iMarker_Source,
   iMarker_Turbomachinery, iMarker_MixingPlaneInterface;
 
   int size = SINGLE_NODE;
@@ -5269,7 +5273,7 @@ void CConfig::SetMarkers(SU2_COMPONENT val_software) {
   nMarker_EngineInflow + nMarker_EngineExhaust + nMarker_Internal +
   nMarker_Supersonic_Inlet + nMarker_Supersonic_Outlet + nMarker_Displacement + nMarker_Load +
   nMarker_FlowLoad + nMarker_Custom + nMarker_Damper + nMarker_Fluid_Load +
-  nMarker_Clamped + nMarker_Load_Sine + nMarker_Load_Dir + nMarker_Disp_Dir +
+  nMarker_Clamped + nMarker_Load_Sine + nMarker_Load_Dir + nMarker_Disp_Dir + nMarker_Source +
   nMarker_ActDiskInlet + nMarker_ActDiskOutlet + nMarker_ZoneInterface;
 
   /*--- Add the possible send/receive domains ---*/
@@ -5511,6 +5515,12 @@ void CConfig::SetMarkers(SU2_COMPONENT val_software) {
   for (iMarker_Supersonic_Inlet = 0; iMarker_Supersonic_Inlet < nMarker_Supersonic_Inlet; iMarker_Supersonic_Inlet++) {
     Marker_CfgFile_TagBound[iMarker_CfgFile] = Marker_Supersonic_Inlet[iMarker_Supersonic_Inlet];
     Marker_CfgFile_KindBC[iMarker_CfgFile] = SUPERSONIC_INLET;
+    iMarker_CfgFile++;
+  }
+
+  for (iMarker_Source = 0; iMarker_Source < nMarker_Source; iMarker_Source++) {
+    Marker_CfgFile_TagBound[iMarker_CfgFile] = Marker_Source[iMarker_Source];
+    Marker_CfgFile_KindBC[iMarker_CfgFile] = SOURCE;
     iMarker_CfgFile++;
   }
 
@@ -5763,7 +5773,7 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
   iMarker_Designing, iMarker_GeoEval, iMarker_Plotting, iMarker_Analyze, iMarker_DV, iDV_Value,
   iMarker_ZoneInterface, iMarker_PyCustom, iMarker_Load_Dir, iMarker_Disp_Dir, iMarker_Load_Sine, iMarker_Clamped,
   iMarker_Moving, iMarker_Supersonic_Inlet, iMarker_Supersonic_Outlet, iMarker_ActDiskInlet,
-  iMarker_Emissivity,
+  iMarker_Emissivity, iMarker_Source,
   iMarker_ActDiskOutlet, iMarker_MixingPlaneInterface;
 
   bool fea = ((Kind_Solver == MAIN_SOLVER::FEM_ELASTICITY) || (Kind_Solver == MAIN_SOLVER::DISC_ADJ_FEM));
@@ -7114,6 +7124,15 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
     BoundaryTable.PrintFooter();
   }
 
+  if (nMarker_Source != 0) {
+    BoundaryTable << "Supersonic source boundary";
+    for (iMarker_Source = 0; iMarker_Source < nMarker_Source; iMarker_Source++) {
+      BoundaryTable << Marker_Source[iMarker_Source];
+      if (iMarker_Source < nMarker_Source-1)  BoundaryTable << " ";
+    }
+    BoundaryTable.PrintFooter();
+  }
+
   if (nMarker_Supersonic_Outlet != 0) {
     BoundaryTable << "Supersonic outlet boundary";
     for (iMarker_Supersonic_Outlet = 0; iMarker_Supersonic_Outlet < nMarker_Supersonic_Outlet; iMarker_Supersonic_Outlet++) {
@@ -7912,6 +7931,13 @@ CConfig::~CConfig(void) {
     delete [] Inlet_Velocity;
   }
 
+  if (Inlet_Velocity != nullptr) {
+    for (iMarker = 0; iMarker < nMarker_Source; iMarker++)
+      delete [] Inlet_Velocity[iMarker];
+    delete [] Inlet_Velocity;
+  }
+
+
   if (Inlet_MassFrac != nullptr) {
     for (iMarker = 0; iMarker < nMarker_Supersonic_Inlet; iMarker++)
       delete [] Inlet_MassFrac[iMarker];
@@ -8009,6 +8035,7 @@ CConfig::~CConfig(void) {
       delete[] Marker_Fluid_InterfaceBound;
                delete[] Marker_Inlet;
     delete[] Marker_Supersonic_Inlet;
+    delete[] Marker_Source;
     delete[] Marker_Supersonic_Outlet;
               delete[] Marker_Outlet;
           delete[] Marker_Isothermal;
@@ -8830,6 +8857,28 @@ const su2double* CConfig::GetInlet_Velocity(string val_marker) const {
     if (Marker_Supersonic_Inlet[iMarker_Supersonic_Inlet] == val_marker) break;
   return Inlet_Velocity[iMarker_Supersonic_Inlet];
 }
+///////////////////////////////////////////////////////////////////////////////////////////////
+su2double CConfig::GetSource_Temperature(string val_marker) const {
+  unsigned short iMarker_Source;
+  for (iMarker_Source = 0; iMarker_Source < nMarker_Source; iMarker_Source++)
+    if (Marker_Source[iMarker_Source] == val_marker) break;
+  return Source_Temperature[iMarker_Source];
+}
+
+su2double CConfig::GetSource_Pressure(string val_marker) const {
+  unsigned short iMarker_Source;
+  for (iMarker_Source = 0; iMarker_Source < nMarker_Source; iMarker_Source++)
+    if (Marker_Source[iMarker_Source] == val_marker) break;
+  return Source_Pressure[iMarker_Source];
+}
+
+const su2double* CConfig::GetSource_Velocity(string val_marker) const {
+  unsigned short iMarker_Source;
+  for (iMarker_Source = 0; iMarker_Source < nMarker_Source; iMarker_Source++)
+    if (Marker_Source[iMarker_Source] == val_marker) break;
+  return Source_Velocity[iMarker_Source];
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const su2double* CConfig::GetInlet_MassFrac(string val_marker) const {
   unsigned short iMarker_Supersonic_Inlet;

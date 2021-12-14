@@ -220,6 +220,7 @@ private:
   nMarker_Load_Sine,              /*!< \brief Number of load surface markers defined by magnitude and direction. */
   nMarker_FlowLoad,               /*!< \brief Number of load surface markers. */
   nMarker_Internal,               /*!< \brief Number of internal flow markers. */
+  nMarker_Source,
   nMarker_All,                    /*!< \brief Total number of markers using the grid information. */
   nMarker_Max,                    /*!< \brief Max number of number of markers using the grid information. */
   nMarker_CfgFile;                /*!< \brief Total number of markers using the config file (note that in
@@ -271,6 +272,7 @@ private:
   *Marker_Load_Sine,              /*!< \brief Sine-wave loaded markers defined in cartesian coordinates. */
   *Marker_FlowLoad,               /*!< \brief Flow Load markers. */
   *Marker_Internal,               /*!< \brief Internal flow markers. */
+  *Marker_Source,
   *Marker_All_TagBound;           /*!< \brief Global index for markers using grid information. */
 
   su2double *Exhaust_Temperature_Target;     /*!< \brief Specified total temperatures for nacelle boundaries. */
@@ -284,8 +286,11 @@ private:
   su2double *Inlet_Ptotal;                   /*!< \brief Specified total pressures for inlet boundaries. */
   su2double **Inlet_FlowDir;                 /*!< \brief Specified flow direction vector (unit vector) for inlet boundaries. */
   su2double *Inlet_Temperature;              /*!< \brief Specified temperatures for a supersonic inlet boundaries. */
+  su2double *Source_Temperature;
   su2double *Inlet_Pressure;                 /*!< \brief Specified static pressures for supersonic inlet boundaries. */
+  su2double *Source_Pressure;
   su2double **Inlet_Velocity;                /*!< \brief Specified flow velocity vectors for supersonic inlet boundaries. */
+  su2double **Source_Velocity;
   su2double **Inlet_MassFrac;                /*!< \brief Specified Mass fraction vectors for supersonic inlet boundaries (NEMO solver). */
   su2double **Inlet_SpeciesVal;              /*!< \brief Specified species vector for inlet boundaries. */
   su2double *EngineInflow_Target;            /*!< \brief Specified fan face targets for nacelle boundaries. */
@@ -6543,6 +6548,7 @@ public:
    * \return The inlet density.
    */
   su2double GetInlet_Temperature(string val_index) const;
+  su2double GetSource_Temperature(string val_index) const;
 
   /*!
    * \brief Get the pressure at a supersonic inlet boundary.
@@ -6550,6 +6556,7 @@ public:
    * \return The inlet pressure.
    */
   su2double GetInlet_Pressure(string val_index) const;
+  su2double GetSource_Pressure(string val_index) const;
 
   /*!
    * \brief Get the velocity vector at a supersonic inlet boundary.
@@ -6557,6 +6564,7 @@ public:
    * \return The inlet velocity vector.
    */
   const su2double* GetInlet_Velocity(string val_index) const;
+  const su2double* GetSource_Velocity(string val_index) const;
 
   /*!
    * \brief Get the mass fraction vector at a supersonic inlet boundary.
