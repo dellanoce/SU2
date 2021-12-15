@@ -3,7 +3,7 @@
  * \brief Implementation of numerics classes for integration of
  *        turbulence source-terms.
  * \author F. Palacios, T. Economon
- * \version 7.2.0 "Blackbird"
+ * \version 7.2.1 "Blackbird"
  *
  * SU2 Project Website: https://su2code.github.io
  *
@@ -27,6 +27,10 @@
  */
 
 #include "../../../include/numerics/turbulent/turb_sources.hpp"
+
+#include "../../../include/variables/CEulerVariable.hpp"
+#include "../../../include/variables/CIncEulerVariable.hpp"
+#include "../../../include/variables/CNEMOEulerVariable.hpp"
 
 CSourceBase_TurbSA::CSourceBase_TurbSA(unsigned short val_nDim,
                                        unsigned short val_nVar,

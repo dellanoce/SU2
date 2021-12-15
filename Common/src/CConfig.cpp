@@ -2,7 +2,7 @@
  * \file CConfig.cpp
  * \brief Main file for managing the config file
  * \author F. Palacios, T. Economon, B. Tracey, H. Kline
- * \version 7.2.0 "Blackbird"
+ * \version 7.2.1 "Blackbird"
  *
  * SU2 Project Website: https://su2code.github.io
  *
@@ -1726,7 +1726,7 @@ void CConfig::SetConfig_Options() {
   /*!\par CONFIG_CATEGORY: Convergence\ingroup Config*/
   /*--- Options related to convergence ---*/
 
-  // This option is deprecated. After a grace period until 7.2.0 the usage warning should become an error.
+  // This option is deprecated. After a grace period until 7.2.1 the usage warning should become an error.
   addStringOption("CONV_CRITERIA", ConvCriteria, "this option is deprecated");
   /*!\brief CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("CONV_RESIDUAL_MINVAL", MinLogResidual, -14.0);
@@ -2900,7 +2900,7 @@ void CConfig::SetConfig_Parsing(istream& config_buffer){
             newString.append("UNST_RESTART_ITER is deprecated. Use RESTART_ITER instead.\n\n");
           else if (!option_name.compare("DYN_RESTART_ITER"))
             newString.append("DYN_RESTART_ITER is deprecated. Use RESTART_ITER instead.\n\n");
-          // This option is deprecated. After a grace period until 7.2.0 the usage warning should become an error.
+          // This option is deprecated. After a grace period until 7.2.1 the usage warning should become an error.
           /*else if (!option_name.compare("CONV_CRITERIA"))
             newString.append(string("CONV_CRITERIA is deprecated. SU2 will choose the criteria automatically based on the CONV_FIELD.\n") +
                              string("RESIDUAL for any RMS_* BGS_* value. CAUCHY for coefficients like DRAG etc.\n\n"));*/
@@ -3105,7 +3105,7 @@ void CConfig::SetHeader(SU2_COMPONENT val_software) const{
   if ((iZone == 0) && (rank == MASTER_NODE)){
     cout << endl << "-------------------------------------------------------------------------" << endl;
     cout << "|    ___ _   _ ___                                                      |" << endl;
-    cout << "|   / __| | | |_  )   Release 7.2.0 \"Blackbird\"                         |" << endl;
+    cout << "|   / __| | | |_  )   Release 7.2.1 \"Blackbird\"                         |" << endl;
     cout << "|   \\__ \\ |_| |/ /                                                      |" << endl;
     switch (val_software) {
     case SU2_COMPONENT::SU2_CFD: cout << "|   |___/\\___//___|   Suite (Computational Fluid Dynamics Code)         |" << endl; break;
@@ -5067,7 +5067,7 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
   if (GetGasModel() == "ARGON") {monoatomic = true;}
   else {monoatomic = false;}
 
-  // This option is deprecated. After a grace period until 7.2.0 the usage warning should become an error.
+  // This option is deprecated. After a grace period until 7.2.1 the usage warning should become an error.
   if(OptionIsSet("CONV_CRITERIA") && rank == MASTER_NODE) {
     cout << "\n\nWARNING: CONV_CRITERIA is deprecated. SU2 will choose the criteria automatically based on the CONV_FIELD.\n"
             "That is, RESIDUAL for any RMS_* BGS_* value, and CAUCHY for coefficients such as DRAG etc.\n" << endl;
