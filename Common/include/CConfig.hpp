@@ -1672,7 +1672,7 @@ public:
    * \brief Get the value of the von Karman constant kappa for turbulence wall modeling.
    * \return von Karman constant.
    */
-  su2double GetwallModelKappa(void) const { return wallModelKappa; }
+  su2double GetwallModel_Kappa(void) const { return wallModelKappa; }
 
   /*!
    * \brief Get the value of the von Karman constant kappa for turbulence wall modeling.
