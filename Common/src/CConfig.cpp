@@ -8192,10 +8192,12 @@ unsigned short CConfig::GetContainerPosition(unsigned short val_eqsystem) {
     case RUNTIME_FLOW_SYS:      return FLOW_SOL;
     case RUNTIME_TURB_SYS:      return TURB_SOL;
     case RUNTIME_TRANS_SYS:     return TRANS_SOL;
+    case RUNTIME_SPECIES_SYS:   return SPECIES_SOL;
     case RUNTIME_HEAT_SYS:      return HEAT_SOL;
     case RUNTIME_FEA_SYS:       return FEA_SOL;
     case RUNTIME_ADJFLOW_SYS:   return ADJFLOW_SOL;
     case RUNTIME_ADJTURB_SYS:   return ADJTURB_SOL;
+    case RUNTIME_ADJSPECIES_SYS:return ADJSPECIES_SOL;
     case RUNTIME_ADJFEA_SYS:    return ADJFEA_SOL;
     case RUNTIME_RADIATION_SYS: return RAD_SOL;
     case RUNTIME_MULTIGRID_SYS: return 0;
@@ -8243,6 +8245,12 @@ void CConfig::SetGlobalParam(unsigned short val_solver,
                               MUSCL_Flow, NONE);
         SetKind_TimeIntScheme(Kind_TimeIntScheme_Flow);
       }
+      if (val_system == RUNTIME_SPECIES_SYS) {
+        SetKind_ConvNumScheme(Kind_ConvNumScheme_Species, Kind_Centered_Species,
+                              Kind_Upwind_Species, Kind_SlopeLimit_Species,
+                              MUSCL_Species, NONE);
+        SetKind_TimeIntScheme(Kind_TimeIntScheme_Species);
+      }
       if (val_system == RUNTIME_HEAT_SYS) {
         SetKind_ConvNumScheme(Kind_ConvNumScheme_Heat, NONE, NONE, NONE, NONE, NONE);
         SetKind_TimeIntScheme(Kind_TimeIntScheme_Heat);
@@ -8260,6 +8268,12 @@ void CConfig::SetGlobalParam(unsigned short val_solver,
                               Kind_Upwind_Turb, Kind_SlopeLimit_Turb,
                               MUSCL_Turb, NONE);
         SetKind_TimeIntScheme(Kind_TimeIntScheme_Turb);
+      }
+      if (val_system == RUNTIME_SPECIES_SYS) {
+        SetKind_ConvNumScheme(Kind_ConvNumScheme_Species, Kind_Centered_Species,
+                              Kind_Upwind_Species, Kind_SlopeLimit_Species,
+                              MUSCL_Species, NONE);
+        SetKind_TimeIntScheme(Kind_TimeIntScheme_Species);
       }
       if (val_system == RUNTIME_TRANS_SYS) {
         SetKind_ConvNumScheme(Kind_ConvNumScheme_Turb, Kind_Centered_Turb,
@@ -8365,6 +8379,9 @@ void CConfig::SetGlobalParam(unsigned short val_solver,
         SetKind_ConvNumScheme(NONE, NONE, NONE, NONE, NONE, NONE);
         SetKind_TimeIntScheme(NONE);
       }
+      break;
+
+    default:
       break;
   }
 }
@@ -8731,6 +8748,13 @@ const su2double* CConfig::GetInlet_MassFrac(string val_marker) const {
   for (iMarker_Supersonic_Inlet = 0; iMarker_Supersonic_Inlet < nMarker_Supersonic_Inlet; iMarker_Supersonic_Inlet++)
     if (Marker_Supersonic_Inlet[iMarker_Supersonic_Inlet] == val_marker) break;
   return Inlet_MassFrac[iMarker_Supersonic_Inlet];
+}
+
+const su2double* CConfig::GetInlet_SpeciesVal(string val_marker) const {
+  unsigned short iMarker_Inlet_Species;
+  for (iMarker_Inlet_Species = 0; iMarker_Inlet_Species < nMarker_Inlet_Species; iMarker_Inlet_Species++)
+    if (Marker_Inlet_Species[iMarker_Inlet_Species] == val_marker) break;
+  return Inlet_SpeciesVal[iMarker_Inlet_Species];
 }
 
 su2double CConfig::GetOutlet_Pressure(string val_marker) const {

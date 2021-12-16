@@ -76,7 +76,7 @@ const unsigned int MAX_PARAMETERS = 10;       /*!< \brief Maximum number of para
 const unsigned int MAX_NUMBER_PERIODIC = 10;  /*!< \brief Maximum number of periodic boundary conditions. */
 const unsigned int MAX_STRING_SIZE = 200;     /*!< \brief Maximum number of domains. */
 const unsigned int MAX_NUMBER_FFD = 15;       /*!< \brief Maximum number of FFDBoxes for the FFD. */
-enum: unsigned int{MAX_SOLS = 12};            /*!< \brief Maximum number of solutions at the same time (dimension of solution container array). */
+enum: unsigned int{MAX_SOLS = 13};            /*!< \brief Maximum number of solutions at the same time (dimension of solution container array). */
 const unsigned int MAX_TERMS = 6;             /*!< \brief Maximum number of terms in the numerical equations (dimension of solver container array). */
 const unsigned int MAX_ZONES = 3;             /*!< \brief Maximum number of zones. */
 const unsigned int MAX_FE_KINDS = 4;          /*!< \brief Maximum number of Finite Elements. */
@@ -215,13 +215,11 @@ enum ANSWER {
  */
 enum AVERAGE_TYPE {
   AVERAGE_AREA = 1,     /*!< \brief Area-weighted average. */
-  AVERAGE_MASSFLUX = 2, /*!< \brief Mass-flux weighted average. */
-  AVERAGE_HYBRID =3     /*!< \brief Hybrid weighted average for aeroprop purposes. */
+  AVERAGE_MASSFLUX = 2  /*!< \brief Mass-flux weighted average. */
 };
 static const MapType<std::string, AVERAGE_TYPE> Average_Map = {
   MakePair("AREA", AVERAGE_AREA)
   MakePair("MASSFLUX", AVERAGE_MASSFLUX)
-  MakePair("HYBRID", AVERAGE_HYBRID)
 };
 
 /*!
@@ -487,6 +485,8 @@ enum RUNTIME_TYPE {
   RUNTIME_TRANS_SYS = 22,     /*!< \brief One-physics case, the code is solving the turbulence model. */
   RUNTIME_RADIATION_SYS = 23, /*!< \brief One-physics case, the code is solving the radiation model. */
   RUNTIME_ADJRAD_SYS = 24,    /*!< \brief One-physics case, the code is solving the adjoint radiation model. */
+  RUNTIME_SPECIES_SYS = 25,   /*!< \brief One-physics case, the code is solving the species model. */
+  RUNTIME_ADJSPECIES_SYS = 26,/*!< \brief One-physics case, the code is solving the adjoint species model. */
 };
 
 const int FLOW_SOL = 0;     /*!< \brief Position of the mean flow solution in the solver container array. */
@@ -503,6 +503,9 @@ const int ADJRAD_SOL = 8;   /*!< \brief Position of the continuous adjoint turbu
 
 const int MESH_SOL = 9;      /*!< \brief Position of the mesh solver. */
 const int ADJMESH_SOL = 10;   /*!< \brief Position of the adjoint of the mesh solver. */
+
+const int SPECIES_SOL = 11;    /*!< \brief Position of the species solver. */
+const int ADJSPECIES_SOL = 12; /*!< \brief Position of the adjoint of the species solver. */
 
 const int FEA_SOL = 0;      /*!< \brief Position of the FEA equation in the solution solver array. */
 const int ADJFEA_SOL = 1;   /*!< \brief Position of the FEA adjoint equation in the solution solver array. */
@@ -696,6 +699,21 @@ static const MapType<std::string, CONDUCTIVITYMODEL_TURB> TurbConductivityModel_
 };
 
 /*!
+ * \brief types of mass diffusivity models
+ */
+enum class DIFFUSIVITYMODEL {
+  CONSTANT_DIFFUSIVITY, /*!< \brief Constant mass diffusivity for scalar transport. */
+  CONSTANT_SCHMIDT,     /*!< \brief Constant Schmidt number for mass diffusion in scalar transport. */
+  UNITY_LEWIS,          /*!< \brief Unity Lewis model */
+};
+
+static const MapType<std::string, DIFFUSIVITYMODEL> Diffusivity_Model_Map = {
+  MakePair("CONSTANT_DIFFUSIVITY", DIFFUSIVITYMODEL::CONSTANT_DIFFUSIVITY)
+  MakePair("CONSTANT_SCHMIDT", DIFFUSIVITYMODEL::CONSTANT_SCHMIDT)
+  MakePair("UNITY_LEWIS", DIFFUSIVITYMODEL::UNITY_LEWIS)
+};
+
+/*!
  * \brief Types of unsteady mesh motion
  */
 enum ENUM_GRIDMOVEMENT {
@@ -848,13 +866,13 @@ static const MapType<std::string, ENUM_FEM> FEM_Map = {
 /*!
  * \brief Types of shock capturing method in Discontinuous Galerkin numerical method.
  */
-enum ENUM_SHOCK_CAPTURING_DG {
-  NO_SHOCK_CAPTURING = 0,     /*!< \brief Shock capturing is not used. */
-  PERSSON = 1                 /*!< \brief Per-Olof Persson's sub-cell shock capturing method. */
+enum class FEM_SHOCK_CAPTURING_DG {
+  NONE,     /*!< \brief Shock capturing is not used. */
+  PERSSON   /*!< \brief Per-Olof Persson's sub-cell shock capturing method. */
 };
-static const MapType<std::string, ENUM_SHOCK_CAPTURING_DG> ShockCapturingDG_Map = {
-  MakePair("NONE", NO_SHOCK_CAPTURING)
-  MakePair("PERSSON", PERSSON)
+static const MapType<std::string, FEM_SHOCK_CAPTURING_DG> ShockCapturingDG_Map = {
+  MakePair("NONE", FEM_SHOCK_CAPTURING_DG::NONE)
+  MakePair("PERSSON", FEM_SHOCK_CAPTURING_DG::PERSSON)
 };
 
 /*!
@@ -894,57 +912,97 @@ static const MapType<std::string, ENUM_LIMITER> Limiter_Map = {
 /*!
  * \brief Types of turbulent models
  */
-enum ENUM_TURB_MODEL {
-  NO_TURB_MODEL = 0, /*!< \brief No turbulence model. */
-  SA        = 1,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
-  SA_NEG    = 2,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
-  SA_E      = 3,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards). */
-  SA_COMP   = 4,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras Compressibility Correction). */
-  SA_E_COMP = 5,     /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards with Compressibility Correction). */
-  SST       = 6,     /*!< \brief Kind of Turbulence model (Menter SST). */
-  SST_SUST  = 7      /*!< \brief Kind of Turbulence model (Menter SST with sustaining terms for free-stream preservation). */
+enum class TURB_MODEL {
+  NONE,      /*!< \brief No turbulence model. */
+  SA,        /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
+  SA_NEG,    /*!< \brief Kind of Turbulent model (Spalart-Allmaras). */
+  SA_E,      /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards). */
+  SA_COMP,   /*!< \brief Kind of Turbulent model (Spalart-Allmaras Compressibility Correction). */
+  SA_E_COMP, /*!< \brief Kind of Turbulent model (Spalart-Allmaras Edwards with Compressibility Correction). */
+  SST,       /*!< \brief Kind of Turbulence model (Menter SST). */
+  SST_SUST   /*!< \brief Kind of Turbulence model (Menter SST with sustaining terms for free-stream preservation). */
 };
-static const MapType<std::string, ENUM_TURB_MODEL> Turb_Model_Map = {
-  MakePair("NONE", NO_TURB_MODEL)
-  MakePair("SA", SA)
-  MakePair("SA_NEG", SA_NEG)
-  MakePair("SA_E", SA_E)
-  MakePair("SA_COMP", SA_COMP)
-  MakePair("SA_E_COMP", SA_E_COMP)
-  MakePair("SST", SST)
-  MakePair("SST_SUST", SST_SUST)
+static const MapType<std::string, TURB_MODEL> Turb_Model_Map = {
+  MakePair("NONE", TURB_MODEL::NONE)
+  MakePair("SA", TURB_MODEL::SA)
+  MakePair("SA_NEG", TURB_MODEL::SA_NEG)
+  MakePair("SA_E", TURB_MODEL::SA_E)
+  MakePair("SA_COMP", TURB_MODEL::SA_COMP)
+  MakePair("SA_E_COMP", TURB_MODEL::SA_E_COMP)
+  MakePair("SST", TURB_MODEL::SST)
+  MakePair("SST_SUST", TURB_MODEL::SST_SUST)
 };
+
+/*!
+ * \brief Families of turbulence models
+ */
+enum class TURB_FAMILY {
+  NONE,   /*!< \brief No turbulence model. */
+  SA,     /*!< \brief Spalart-Allmaras variants. */
+  KW,     /*!< \brief k-w models. */
+};
+/*!
+ * \brief Associate turb models with their family
+ */
+inline TURB_FAMILY TurbModelFamily(TURB_MODEL model) {
+  switch (model) {
+    case TURB_MODEL::NONE:
+      return TURB_FAMILY::NONE;
+    case TURB_MODEL::SA:
+    case TURB_MODEL::SA_NEG:
+    case TURB_MODEL::SA_E:
+    case TURB_MODEL::SA_COMP:
+    case TURB_MODEL::SA_E_COMP:
+      return TURB_FAMILY::SA;
+    case TURB_MODEL::SST:
+    case TURB_MODEL::SST_SUST:
+      return TURB_FAMILY::KW;
+  }
+  return TURB_FAMILY::NONE;
+}
 
 /*!
  * \brief Types of transition models
  */
-enum ENUM_TRANS_MODEL {
-  NO_TRANS_MODEL = 0,  /*!< \brief No transition model. */
-  LM = 1,              /*!< \brief Kind of transition model (Langtry-Menter (LM) for SST and Spalart-Allmaras). */
-  BC = 2               /*!< \brief Kind of transition model (BAS-CAKMAKCIOGLU (BC) for Spalart-Allmaras). */
+enum class TURB_TRANS_MODEL {
+  NONE,  /*!< \brief No transition model. */
+  LM,    /*!< \brief Kind of transition model (Langtry-Menter (LM) for SST and Spalart-Allmaras). */
+  BC    /*!< \brief Kind of transition model (BAS-CAKMAKCIOGLU (BC) for Spalart-Allmaras). */
 };
-static const MapType<std::string, ENUM_TRANS_MODEL> Trans_Model_Map = {
-  MakePair("NONE", NO_TRANS_MODEL)
-  MakePair("LM", LM)
-  MakePair("BC", BC)
+static const MapType<std::string, TURB_TRANS_MODEL> Trans_Model_Map = {
+  MakePair("NONE", TURB_TRANS_MODEL::NONE)
+  MakePair("LM", TURB_TRANS_MODEL::LM)
+  MakePair("BC", TURB_TRANS_MODEL::BC)
+};
+
+/*!
+ * \brief types of species transport models
+ */
+enum class SPECIES_MODEL {
+  NONE,              /*!< \brief No scalar transport model. */
+  PASSIVE_SCALAR,    /*!< \brief Passive scalar transport model. */
+};
+static const MapType<std::string, SPECIES_MODEL> Species_Model_Map = {
+  MakePair("NONE", SPECIES_MODEL::NONE)
+  MakePair("PASSIVE_SCALAR", SPECIES_MODEL::PASSIVE_SCALAR)
 };
 
 /*!
  * \brief Types of subgrid scale models
  */
-enum ENUM_SGS_MODEL {
-  NO_SGS_MODEL = 0, /*!< \brief No subgrid scale model. */
-  IMPLICIT_LES = 1, /*!< \brief Implicit LES, i.e. no explicit SGS model. */
-  SMAGORINSKY  = 2, /*!< \brief Smagorinsky SGS model. */
-  WALE         = 3, /*!< \brief Wall-Adapting Local Eddy-viscosity SGS model. */
-  VREMAN       = 4  /*!< \brief Vreman SGS model. */
+enum class TURB_SGS_MODEL {
+  NONE        , /*!< \brief No subgrid scale model. */
+  IMPLICIT_LES, /*!< \brief Implicit LES, i.e. no explicit SGS model. */
+  SMAGORINSKY , /*!< \brief Smagorinsky SGS model. */
+  WALE        , /*!< \brief Wall-Adapting Local Eddy-viscosity SGS model. */
+  VREMAN        /*!< \brief Vreman SGS model. */
 };
-static const MapType<std::string, ENUM_SGS_MODEL> SGS_Model_Map = {
-  MakePair("NONE",         NO_SGS_MODEL)
-  MakePair("IMPLICIT_LES", IMPLICIT_LES)
-  MakePair("SMAGORINSKY",  SMAGORINSKY)
-  MakePair("WALE",         WALE)
-  MakePair("VREMAN",       VREMAN)
+static const MapType<std::string, TURB_SGS_MODEL> SGS_Model_Map = {
+  MakePair("NONE",         TURB_SGS_MODEL::NONE)
+  MakePair("IMPLICIT_LES", TURB_SGS_MODEL::IMPLICIT_LES)
+  MakePair("SMAGORINSKY",  TURB_SGS_MODEL::SMAGORINSKY)
+  MakePair("WALE",         TURB_SGS_MODEL::WALE)
+  MakePair("VREMAN",       TURB_SGS_MODEL::VREMAN)
 };
 
 
@@ -1510,8 +1568,9 @@ enum ENUM_OBJECTIVE {
   SURFACE_MOM_DISTORTION = 54,  /*!< \brief Momentum distortion objective function definition. */
   SURFACE_SECOND_OVER_UNIFORM = 55, /*!< \brief Secondary over uniformity (relative secondary strength) objective function definition. */
   SURFACE_PRESSURE_DROP = 56,   /*!< \brief Pressure drop objective function definition. */
+  SURFACE_SPECIES_0 = 58,       /*!< \brief Surface Avg. Species_0 objective function definition. */
+  SURFACE_SPECIES_VARIANCE = 59,/*!< \brief Species Variance objective function definition. */
   CUSTOM_OBJFUNC = 31,          /*!< \brief Custom objective function definition. */
-  AVG_NORMAL_VEL = 32,          /*!< \brief Mass-averaged normal velocity. */
   TOTAL_PRESSURE_LOSS = 39,
   KINETIC_ENERGY_LOSS = 40,
   TOTAL_EFFICIENCY = 41,
@@ -1563,8 +1622,9 @@ static const MapType<std::string, ENUM_OBJECTIVE> Objective_Map = {
   MakePair("SURFACE_MOM_DISTORTION", SURFACE_MOM_DISTORTION)
   MakePair("SURFACE_SECOND_OVER_UNIFORM", SURFACE_SECOND_OVER_UNIFORM)
   MakePair("SURFACE_PRESSURE_DROP", SURFACE_PRESSURE_DROP)
+  MakePair("SURFACE_SPECIES_0", SURFACE_SPECIES_0)
+  MakePair("SURFACE_SPECIES_VARIANCE", SURFACE_SPECIES_VARIANCE)
   MakePair("CUSTOM_OBJFUNC", CUSTOM_OBJFUNC)
-  MakePair("AVG_NORMAL_VEL", AVG_NORMAL_VEL)
   MakePair("TOTAL_EFFICIENCY", TOTAL_EFFICIENCY)
   MakePair("TOTAL_STATIC_EFFICIENCY", TOTAL_STATIC_EFFICIENCY)
   MakePair("TOTAL_PRESSURE_LOSS", TOTAL_PRESSURE_LOSS)
@@ -2270,25 +2330,6 @@ static const MapType<std::string, ENUM_STREAMWISE_PERIODIC> Streamwise_Periodic_
   MakePair("PRESSURE_DROP", ENUM_STREAMWISE_PERIODIC::PRESSURE_DROP)
   MakePair("MASSFLOW",      ENUM_STREAMWISE_PERIODIC::MASSFLOW)
 };
-
-/*!
- * \brief Types of discrete adjoint solver formulations.
- */
-enum ENUM_DISC_ADJ_TYPE {
-    FIXED_POINT = 0,  /*!< \brief Fixed-point discrete-adjoint formulation. */
-    RESIDUALS   = 1   /*!< \brief Residual-based discrete-adjoint formulation. */
-};
-static const MapType<std::string, ENUM_DISC_ADJ_TYPE> DiscreteAdjoint_Map = {
-        MakePair("FIXED_POINT", ENUM_DISC_ADJ_TYPE::FIXED_POINT)
-        MakePair("RESIDUALS",   ENUM_DISC_ADJ_TYPE::RESIDUALS)
-};
-
-enum class ENUM_VARIABLE {
-    RESIDUALS,
-    OBJECTIVE,
-    TRACTIONS
-};
-
 
 /*!
  * \brief Container to hold Variables for streamwise Periodic flow as they are often used together in places.
