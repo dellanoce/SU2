@@ -41,15 +41,7 @@ CAdjTurbSolver::CAdjTurbSolver(CGeometry *geometry, CConfig *config, unsigned sh
   Gamma_Minus_One = Gamma - 1.0;
 
   /*--- Dimension of the problem  ---*/
-  switch (config->GetKind_Turb_Model()) {
-    case SA :        nVar = 1; break;
-    case SA_NEG :    nVar = 1; break;
-    case SA_E :      nVar = 1; break;
-    case SA_COMP :   nVar = 1; break;
-    case SA_E_COMP : nVar = 1; break;
-    case SST :       nVar = 2; break;
-    case SST_SUST :  nVar = 2; break;
-  }
+  nVar = config->GetnTurbVar();
 
   /*--- Initialize nVarGrad for deallocation ---*/
 

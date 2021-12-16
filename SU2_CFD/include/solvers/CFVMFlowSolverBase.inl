@@ -406,8 +406,8 @@ void CFVMFlowSolverBase<V, R>::Viscous_Residual_impl(unsigned long iEdge, CGeome
                                                      CNumerics *numerics, CConfig *config) {
 
   const bool implicit  = (config->GetKind_TimeIntScheme() == EULER_IMPLICIT);
-  const bool tkeNeeded = (config->GetKind_Turb_Model() == SST) ||
-                         (config->GetKind_Turb_Model() == SST_SUST);
+  const bool tkeNeeded = (config->GetKind_Turb_Model() == TURB_MODEL::SST) ||
+                         (config->GetKind_Turb_Model() == TURB_MODEL::SST_SUST);
 
   CVariable* turbNodes = nullptr;
   if (tkeNeeded) turbNodes = solver_container[TURB_SOL]->GetNodes();
@@ -443,8 +443,8 @@ void CFVMFlowSolverBase<V, R>::Viscous_Residual_impl(unsigned long iEdge, CGeome
 
   /*--- Wall shear stress values (wall functions) ---*/
 
-  numerics->SetTauWall(nodes->GetTauWall(iPoint),
-                       nodes->GetTauWall(jPoint));
+  numerics->SetTau_Wall(nodes->GetTau_Wall(iPoint),
+                        nodes->GetTau_Wall(jPoint));
 
   /*--- Compute and update residual ---*/
 
@@ -590,6 +590,94 @@ void CFVMFlowSolverBase<V, R>::ImplicitEuler_Iteration(CGeometry *geometry, CSol
   SU2_OMP_BARRIER
 
   CompleteImplicitIteration(geometry, nullptr, config);
+}
+
+template <class V, ENUM_REGIME R>
+void CFVMFlowSolverBase<V, R>::ComputeVorticityAndStrainMag(const CConfig& config, unsigned short iMesh) {
+
+  auto& StrainMag = nodes->GetStrainMag();
+
+  ompMasterAssignBarrier(StrainMag_Max,0.0, Omega_Max,0.0);
+
+  su2double strainMax = 0.0, omegaMax = 0.0;
+
+  SU2_OMP_FOR_STAT(omp_chunk_size)
+  for (unsigned long iPoint = 0; iPoint < nPoint; ++iPoint) {
+
+    const auto VelocityGradient = nodes->GetVelocityGradient(iPoint);
+    auto Vorticity = nodes->GetVorticity(iPoint);
+
+    /*--- Vorticity ---*/
+
+    Vorticity[0] = 0.0;
+    Vorticity[1] = 0.0;
+    Vorticity[2] = VelocityGradient(1,0)-VelocityGradient(0,1);
+
+    if (nDim == 3) {
+      Vorticity[0] = VelocityGradient(2,1)-VelocityGradient(1,2);
+      Vorticity[1] = -(VelocityGradient(2,0)-VelocityGradient(0,2));
+    }
+
+    /*--- Strain Magnitude ---*/
+
+    AD::StartPreacc();
+    AD::SetPreaccIn(VelocityGradient, nDim, nDim);
+
+    su2double Div = 0.0;
+    for (unsigned long iDim = 0; iDim < nDim; iDim++)
+      Div += VelocityGradient(iDim, iDim);
+    Div /= 3.0;
+
+    StrainMag(iPoint) = 0.0;
+
+    /*--- Add diagonal part ---*/
+
+    for (unsigned long iDim = 0; iDim < nDim; iDim++) {
+      StrainMag(iPoint) += pow(VelocityGradient(iDim, iDim) - Div, 2);
+    }
+    if (nDim == 2) {
+      StrainMag(iPoint) += pow(Div, 2);
+    }
+
+    /*--- Add off diagonals ---*/
+
+    StrainMag(iPoint) += 2.0*pow(0.5*(VelocityGradient(0,1) + VelocityGradient(1,0)), 2);
+
+    if (nDim == 3) {
+      StrainMag(iPoint) += 2.0*pow(0.5*(VelocityGradient(0,2) + VelocityGradient(2,0)), 2);
+      StrainMag(iPoint) += 2.0*pow(0.5*(VelocityGradient(1,2) + VelocityGradient(2,1)), 2);
+    }
+
+    StrainMag(iPoint) = sqrt(2.0*StrainMag(iPoint));
+    AD::SetPreaccOut(StrainMag(iPoint));
+
+    /*--- Max is not differentiable, so we not register them for preacc. ---*/
+    strainMax = max(strainMax, StrainMag(iPoint));
+    omegaMax = max(omegaMax, GeometryToolbox::Norm(3, Vorticity));
+
+    AD::EndPreacc();
+  }
+  END_SU2_OMP_FOR
+
+  if ((iMesh == MESH_0) && (config.GetComm_Level() == COMM_FULL)) {
+    SU2_OMP_CRITICAL {
+      StrainMag_Max = max(StrainMag_Max, strainMax);
+      Omega_Max = max(Omega_Max, omegaMax);
+    }
+    END_SU2_OMP_CRITICAL
+
+    SU2_OMP_BARRIER
+    SU2_OMP_MASTER {
+      su2double MyOmega_Max = Omega_Max;
+      su2double MyStrainMag_Max = StrainMag_Max;
+
+      SU2_MPI::Allreduce(&MyStrainMag_Max, &StrainMag_Max, 1, MPI_DOUBLE, MPI_MAX, SU2_MPI::GetComm());
+      SU2_MPI::Allreduce(&MyOmega_Max, &Omega_Max, 1, MPI_DOUBLE, MPI_MAX, SU2_MPI::GetComm());
+    }
+    END_SU2_OMP_MASTER
+    SU2_OMP_BARRIER
+  }
+
 }
 
 template <class V, ENUM_REGIME R>
@@ -931,7 +1019,6 @@ void CFVMFlowSolverBase<V, R>::LoadRestart_impl(CGeometry **geometry, CSolver **
   }
   END_SU2_OMP_MASTER
   SU2_OMP_BARRIER
-
 }
 
 template <class V, ENUM_REGIME R>
@@ -945,7 +1032,7 @@ void CFVMFlowSolverBase<V, R>::SetInitialCondition(CGeometry **geometry, CSolver
                                                    CConfig *config, unsigned long TimeIter) {
 
   const bool restart = (config->GetRestart() || config->GetRestart_Flow());
-  const bool rans = (config->GetKind_Turb_Model() != NONE);
+  const bool rans = (config->GetKind_Turb_Model() != TURB_MODEL::NONE);
   const bool dual_time = ((config->GetTime_Marching() == TIME_MARCHING::DT_STEPPING_1ST) ||
                           (config->GetTime_Marching() == TIME_MARCHING::DT_STEPPING_2ND));
 
@@ -1265,7 +1352,7 @@ void CFVMFlowSolverBase<V, R>::BC_Sym_Plane(CGeometry* geometry, CSolver** solve
         visc_numerics->SetPrimVarGradient(nodes->GetGradient_Primitive(iPoint), CMatrixView<su2double>(Grad_Reflected));
 
         /*--- Turbulent kinetic energy. ---*/
-        if ((config->GetKind_Turb_Model() == SST) || (config->GetKind_Turb_Model() == SST_SUST))
+        if ((config->GetKind_Turb_Model() == TURB_MODEL::SST) || (config->GetKind_Turb_Model() == TURB_MODEL::SST_SUST))
           visc_numerics->SetTurbKineticEnergy(solver_container[TURB_SOL]->GetNodes()->GetSolution(iPoint, 0),
                                               solver_container[TURB_SOL]->GetNodes()->GetSolution(iPoint, 0));
 
@@ -1431,7 +1518,7 @@ void CFVMFlowSolverBase<V, FlowRegime>::BC_Fluid_Interface(CGeometry* geometry, 
 
               /*--- Turbulent kinetic energy ---*/
 
-              if ((config->GetKind_Turb_Model() == SST) || (config->GetKind_Turb_Model() == SST_SUST))
+              if ((config->GetKind_Turb_Model() == TURB_MODEL::SST) || (config->GetKind_Turb_Model() == TURB_MODEL::SST_SUST))
                 visc_numerics->SetTurbKineticEnergy(solver_container[TURB_SOL]->GetNodes()->GetSolution(iPoint, 0),
                                                     solver_container[TURB_SOL]->GetNodes()->GetSolution(iPoint, 0));
 
@@ -2392,10 +2479,11 @@ void CFVMFlowSolverBase<V, FlowRegime>::Friction_Forces(const CGeometry* geometr
   unsigned long iVertex, iPoint, iPointNormal;
   unsigned short iMarker, iMarker_Monitoring, iDim, jDim;
   unsigned short T_INDEX = 0, TVE_INDEX = 0, VEL_INDEX = 0;
-  su2double Viscosity = 0.0, WallDist[3] = {0.0}, Area, Density = 0.0, GradTemperature = 0.0,
-            UnitNormal[3] = {0.0}, TauElem[3] = {0.0}, TauTangent[3] = {0.0}, Tau[3][3] = {{0.0}}, Cp,
+  su2double Viscosity = 0.0, Area, Density = 0.0, GradTemperature = 0.0, WallDistMod, FrictionVel,
+            UnitNormal[3] = {0.0}, TauElem[3] = {0.0}, Tau[3][3] = {{0.0}}, Cp,
             thermal_conductivity, MaxNorm = 8.0, Grad_Vel[3][3] = {{0.0}}, Grad_Temp[3] = {0.0}, AxiFactor;
   const su2double *Coord = nullptr, *Coord_Normal = nullptr, *Normal = nullptr;
+  const su2double minYPlus = config->GetwallModel_MinYPlus();
 
   string Marker_Tag, Monitoring_Tag;
 
@@ -2525,30 +2613,37 @@ void CFVMFlowSolverBase<V, FlowRegime>::Friction_Forces(const CGeometry* geometr
       /*--- Compute wall shear stress (using the stress tensor). Compute wall skin friction coefficient, and heat flux
        * on the wall ---*/
 
-      su2double TauNormal = GeometryToolbox::DotProduct(nDim, TauElem, UnitNormal);
+      su2double TauTangent[MAXNDIM] = {0.0};
+      GeometryToolbox::TangentProjection(nDim, Tau, UnitNormal, TauTangent);
+
+      WallShearStress[iMarker][iVertex] = GeometryToolbox::Norm(int(MAXNDIM), TauTangent);
+
+      /*--- For wall functions, the wall stresses need to be scaled by the wallfunction stress Tau_Wall---*/
+      su2double Tau_Wall, scale;
+      if (wallfunctions && (YPlus[iMarker][iVertex] > minYPlus)){
+        Tau_Wall = nodes->GetTau_Wall(iPoint);
+        scale = Tau_Wall / WallShearStress[iMarker][iVertex];
+        for (iDim = 0; iDim < nDim; iDim++) {
+          TauTangent[iDim] *= scale;
+          TauElem[iDim] *= scale;
+        }
+
+        WallShearStress[iMarker][iVertex] = Tau_Wall;
+      }
 
       for (iDim = 0; iDim < nDim; iDim++) {
-        TauTangent[iDim] = TauElem[iDim] - TauNormal * UnitNormal[iDim];
-        /* --- in case of wall functions, we have computed the skin friction in the turbulence solver --- */
-        /* --- Note that in the wall model, we switch off the computation when the computed y+ < 5    --- */
-        /* --- We put YPlus to 1.0 so we have to compute skinfriction and the actual y+ in that case as well --- */
-        if (!wallfunctions || (wallfunctions && YPlus[iMarker][iVertex] < 5.0))
-          CSkinFriction[iMarker](iVertex,iDim) = TauTangent[iDim] * factorFric;
+        CSkinFriction[iMarker](iVertex,iDim) = TauTangent[iDim] * factorFric;
       }
-      WallShearStress[iMarker][iVertex] = GeometryToolbox::Norm(nDim, TauTangent);
 
-      for (iDim = 0; iDim < nDim; iDim++) WallDist[iDim] = (Coord[iDim] - Coord_Normal[iDim]);
-      
-      su2double WallDistMod = GeometryToolbox::Norm(nDim, WallDist);
+      WallDistMod = GeometryToolbox::Distance(nDim, Coord, Coord_Normal);
 
-      /*--- Compute y+ and non-dimensional velocity ---*/
+      /*--- Compute non-dimensional velocity and y+ ---*/
 
-      su2double FrictionVel = sqrt(fabs(WallShearStress[iMarker][iVertex]) / Density);
+      FrictionVel = sqrt(fabs(WallShearStress[iMarker][iVertex]) / Density);
 
-      /* --- in case of wall functions, we have computed YPlus in the turbulence class --- */
-      /* --- Note that we do not recompute y+ when y+<5 because y+ can become > 5 again --- */
-      if (!wallfunctions)
+      if (!wallfunctions) {
         YPlus[iMarker][iVertex] = WallDistMod * FrictionVel / (Viscosity / Density);
+      }
 
       /*--- Compute total and maximum heat flux on the wall ---*/
 
@@ -2574,12 +2669,12 @@ void CFVMFlowSolverBase<V, FlowRegime>::Friction_Forces(const CGeometry* geometr
         const auto& thermal_conductivity_tr = nodes->GetThermalConductivity(iPoint);
         const auto& thermal_conductivity_ve = nodes->GetThermalConductivity_ve(iPoint);
         const auto& Grad_PrimVar            = nodes->GetGradient_Primitive(iPoint);
-        
+
         su2double dTn   = GeometryToolbox::DotProduct(nDim, Grad_PrimVar[T_INDEX], UnitNormal);
         su2double dTven = GeometryToolbox::DotProduct(nDim, Grad_PrimVar[TVE_INDEX], UnitNormal);
-        
+
         /*--- Surface energy balance: trans-rot heat flux, vib-el heat flux,
-        enthalpy transport due to mass diffusion ---*/ 
+        enthalpy transport due to mass diffusion ---*/
         HeatFlux[iMarker][iVertex] = thermal_conductivity_tr*dTn + thermal_conductivity_ve*dTven;
       }
 
@@ -2929,6 +3024,12 @@ su2double CFVMFlowSolverBase<V,R>::EvaluateCommonObjFunc(const CConfig& config) 
       break;
     case SURFACE_PRESSURE_DROP:
       objFun += weight * config.GetSurface_PressureDrop(0);
+      break;
+    case SURFACE_SPECIES_0:
+      objFun += weight * config.GetSurface_Species_0(0);
+      break;
+    case SURFACE_SPECIES_VARIANCE:
+      objFun += weight * config.GetSurface_Species_Variance(0);
       break;
     case CUSTOM_OBJFUNC:
       objFun += weight * Total_Custom_ObjFunc;

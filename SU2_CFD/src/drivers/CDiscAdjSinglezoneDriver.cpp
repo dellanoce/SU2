@@ -59,9 +59,8 @@ CDiscAdjSinglezoneDriver::CDiscAdjSinglezoneDriver(char* confFile,
 
   switch (config->GetKind_Solver()) {
 
-  case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
-  case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:
-
+  case MAIN_SOLVER::DISC_ADJ_EULER: case MAIN_SOLVER::DISC_ADJ_NAVIER_STOKES: case MAIN_SOLVER::DISC_ADJ_RANS:
+  case MAIN_SOLVER::DISC_ADJ_INC_EULER: case MAIN_SOLVER::DISC_ADJ_INC_NAVIER_STOKES: case MAIN_SOLVER::DISC_ADJ_INC_RANS:
     if (rank == MASTER_NODE)
       cout << "Direct iteration: Euler/Navier-Stokes/RANS equation." << endl;
 
@@ -69,12 +68,12 @@ CDiscAdjSinglezoneDriver::CDiscAdjSinglezoneDriver(char* confFile,
       direct_iteration = new CTurboIteration(config);
       output_legacy = COutputFactory::CreateLegacyOutput(config_container[ZONE_0]);
     }
-    else { direct_iteration = CIterationFactory::CreateIteration(EULER, config); }
+    else { direct_iteration = CIterationFactory::CreateIteration(MAIN_SOLVER::EULER, config); }
 
     if (config->GetKind_Regime() == ENUM_REGIME::COMPRESSIBLE) {
-      direct_output = COutputFactory::CreateOutput(EULER, config, nDim);
+      direct_output = COutputFactory::CreateOutput(MAIN_SOLVER::EULER, config, nDim);
     }
-    else { direct_output =  COutputFactory::CreateOutput(INC_EULER, config, nDim); }
+    else { direct_output =  COutputFactory::CreateOutput(MAIN_SOLVER::INC_EULER, config, nDim); }
 
     MainVariables = RECORDING::SOLUTION_VARIABLES;
     if (config->GetDeform_Mesh()) {
@@ -84,13 +83,13 @@ CDiscAdjSinglezoneDriver::CDiscAdjSinglezoneDriver(char* confFile,
     MainSolver = ADJFLOW_SOL;
     break;
 
-  case DISC_ADJ_NEMO_EULER: case DISC_ADJ_NEMO_NAVIER_STOKES:
+  case MAIN_SOLVER::DISC_ADJ_NEMO_EULER: case MAIN_SOLVER::DISC_ADJ_NEMO_NAVIER_STOKES:
 
     if (rank == MASTER_NODE)
       cout << "Direct iteration: Two-temperature Euler/Navier-Stokes/RANS equation." << endl;
 
-    direct_iteration = CIterationFactory::CreateIteration(NEMO_EULER, config);
-    direct_output = COutputFactory::CreateOutput(NEMO_EULER, config, nDim);
+    direct_iteration = CIterationFactory::CreateIteration(MAIN_SOLVER::NEMO_EULER, config);
+    direct_output = COutputFactory::CreateOutput(MAIN_SOLVER::NEMO_EULER, config, nDim);
 
     MainVariables = RECORDING::SOLUTION_VARIABLES;
     if (config->GetDeform_Mesh()) {
@@ -100,34 +99,37 @@ CDiscAdjSinglezoneDriver::CDiscAdjSinglezoneDriver(char* confFile,
     MainSolver = ADJFLOW_SOL;
     break;
 
-  case DISC_ADJ_FEM_EULER : case DISC_ADJ_FEM_NS : case DISC_ADJ_FEM_RANS :
+  case MAIN_SOLVER::DISC_ADJ_FEM_EULER : case MAIN_SOLVER::DISC_ADJ_FEM_NS : case MAIN_SOLVER::DISC_ADJ_FEM_RANS :
     if (rank == MASTER_NODE)
       cout << "Direct iteration: Euler/Navier-Stokes/RANS equation." << endl;
-    direct_iteration = CIterationFactory::CreateIteration(FEM_EULER, config);
-    direct_output = COutputFactory::CreateOutput(FEM_EULER, config, nDim);
+    direct_iteration = CIterationFactory::CreateIteration(MAIN_SOLVER::FEM_EULER, config);
+    direct_output = COutputFactory::CreateOutput(MAIN_SOLVER::FEM_EULER, config, nDim);
     MainVariables = RECORDING::SOLUTION_VARIABLES;
     SecondaryVariables = RECORDING::MESH_COORDS;
     MainSolver = ADJFLOW_SOL;
     break;
 
-  case DISC_ADJ_FEM:
+  case MAIN_SOLVER::DISC_ADJ_FEM:
     if (rank == MASTER_NODE)
       cout << "Direct iteration: elasticity equation." << endl;
-    direct_iteration =  CIterationFactory::CreateIteration(FEM_ELASTICITY, config);
-    direct_output = COutputFactory::CreateOutput(FEM_ELASTICITY, config, nDim);
+    direct_iteration =  CIterationFactory::CreateIteration(MAIN_SOLVER::FEM_ELASTICITY, config);
+    direct_output = COutputFactory::CreateOutput(MAIN_SOLVER::FEM_ELASTICITY, config, nDim);
     MainVariables = RECORDING::SOLUTION_VARIABLES;
     SecondaryVariables = RECORDING::MESH_COORDS;
     MainSolver = ADJFEA_SOL;
     break;
 
-  case DISC_ADJ_HEAT:
+  case MAIN_SOLVER::DISC_ADJ_HEAT:
     if (rank == MASTER_NODE)
       cout << "Direct iteration: heat equation." << endl;
-    direct_iteration = CIterationFactory::CreateIteration(HEAT_EQUATION, config);
-    direct_output = COutputFactory::CreateOutput(HEAT_EQUATION, config, nDim);
+    direct_iteration = CIterationFactory::CreateIteration(MAIN_SOLVER::HEAT_EQUATION, config);
+    direct_output = COutputFactory::CreateOutput(MAIN_SOLVER::HEAT_EQUATION, config, nDim);
     MainVariables = RECORDING::SOLUTION_VARIABLES;
     SecondaryVariables = RECORDING::MESH_COORDS;
     MainSolver = ADJHEAT_SOL;
+    break;
+
+  default:
     break;
 
   }
@@ -164,15 +166,6 @@ void CDiscAdjSinglezoneDriver::Preprocess(unsigned long TimeIter) {
 }
 
 void CDiscAdjSinglezoneDriver::Run() {
-
-    if (config->GetKind_DiscreteAdjoint() == ENUM_DISC_ADJ_TYPE::RESIDUALS) {
-        Run_Residual();
-    } else {
-        Run_FixedPoint();
-    }
-}
-
-void CDiscAdjSinglezoneDriver::Run_FixedPoint() {
 
   CQuasiNewtonInvLeastSquares<passivedouble> fixPtCorrector;
   if (config->GetnQuasiNewtonSamples() > 1) {
@@ -234,69 +227,6 @@ void CDiscAdjSinglezoneDriver::Run_FixedPoint() {
     }
 
   }
-}
-
-void CDiscAdjSinglezoneDriver::Run_Residual() {
-
-    /*--- Initialize the adjoint of the output variables of the iteration with the adjoint solution
-     *--- of the previous iteration. The values are passed to the AD tool.
-     *--- Issues with iteration number should be dealt with once the output structure is in place. ---*/
-
-    iteration->InitializeAdjoint(solver_container, geometry_container, config_container, ZONE_0, INST_0);
-
-    /*--- Interpret the stored information by calling the corresponding routine of the AD tool. ---*/
-
-    AD::ComputeAdjoint();
-
-    /*--- Extract the adjoints of the residuals and store them for the next iteration ---*/
-
-    if (config->GetFluidProblem()) {
-        solver[ADJFLOW_SOL]->ExtractAdjoint_Solution_Residual(geometry, config, ENUM_VARIABLE::RESIDUALS);
-
-        solver[ADJFLOW_SOL]->ExtractAdjoint_Variables_Residual(geometry, config, ENUM_VARIABLE::RESIDUALS);
-    }
-
-    /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
-
-    AD::ClearAdjoints();
-
-    /*--- Initialize the adjoint of the objective function with 1.0. ---*/
-
-    SetAdj_ObjFunction();
-
-    /*--- Interpret the stored information by calling the corresponding routine of the AD tool. ---*/
-
-    AD::ComputeAdjoint();
-
-    /*--- Extract the adjoints of the objective function and store them for the next iteration ---*/
-
-    if (config->GetFluidProblem()) {
-        solver[ADJFLOW_SOL]->ExtractAdjoint_Solution_Residual(geometry, config, ENUM_VARIABLE::OBJECTIVE);
-
-        solver[ADJFLOW_SOL]->ExtractAdjoint_Variables_Residual(geometry, config, ENUM_VARIABLE::OBJECTIVE);
-    }
-
-    /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
-
-    AD::ClearAdjoints();
-
-    /*--- Initialize the adjoint of the vertex tractions with the corresponding adjoint vector. ---*/
-
-    solver[FLOW_SOL]->SetVertexTractionsAdjoint(geometry, config);
-
-    /*--- Interpret the stored information by calling the corresponding routine of the AD tool. ---*/
-
-    AD::ComputeAdjoint();
-
-    /*--- Extract the adjoints of the vertex tractions and store them for the next iteration ---*/
-
-    if (config->GetFluidProblem()) {
-        solver[ADJFLOW_SOL]->ExtractAdjoint_Solution_Residual(geometry, config, ENUM_VARIABLE::TRACTIONS);
-    }
-
-    /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
-
-    AD::ClearAdjoints();
 
 }
 
@@ -304,37 +234,28 @@ void CDiscAdjSinglezoneDriver::Postprocess() {
 
   switch(config->GetKind_Solver())
   {
-    case DISC_ADJ_EULER :     case DISC_ADJ_NAVIER_STOKES :     case DISC_ADJ_RANS :
-    case DISC_ADJ_INC_EULER : case DISC_ADJ_INC_NAVIER_STOKES : case DISC_ADJ_INC_RANS :
-    case DISC_ADJ_NEMO_EULER: case DISC_ADJ_NEMO_NAVIER_STOKES:
-    case DISC_ADJ_HEAT :
+    case MAIN_SOLVER::DISC_ADJ_EULER :     case MAIN_SOLVER::DISC_ADJ_NAVIER_STOKES :     case MAIN_SOLVER::DISC_ADJ_RANS :
+    case MAIN_SOLVER::DISC_ADJ_INC_EULER : case MAIN_SOLVER::DISC_ADJ_INC_NAVIER_STOKES : case MAIN_SOLVER::DISC_ADJ_INC_RANS :
+    case MAIN_SOLVER::DISC_ADJ_NEMO_EULER: case MAIN_SOLVER::DISC_ADJ_NEMO_NAVIER_STOKES:
+    case MAIN_SOLVER::DISC_ADJ_HEAT :
 
       /*--- Compute the geometrical sensitivities ---*/
       SecondaryRecording();
-
-      if (config->GetKind_DiscreteAdjoint() == ENUM_DISC_ADJ_TYPE::RESIDUALS) {
-          SecondaryRun_Residual();
-      } else {
-          SecondaryRun_FixedPoint();
-      }
-
       break;
 
-    case DISC_ADJ_FEM :
+    case MAIN_SOLVER::DISC_ADJ_FEM :
 
       /*--- Compute the geometrical sensitivities ---*/
       SecondaryRecording();
-
-      if (config->GetKind_DiscreteAdjoint() == ENUM_DISC_ADJ_TYPE::RESIDUALS) {
-          SecondaryRun_Residual();
-      } else {
-          SecondaryRun_FixedPoint();
-      }
 
       iteration->Postprocess(output_container[ZONE_0], integration_container, geometry_container,
                              solver_container, numerics_container, config_container,
                              surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
       break;
+
+    default:
+      break;
+
   }//switch
 
 }
@@ -372,12 +293,6 @@ void CDiscAdjSinglezoneDriver::SetRecording(RECORDING kind_recording){
 
     AD::StartRecording();
 
-    if (rank == MASTER_NODE && kind_recording == MainVariables) {
-      cout << endl << "-------------------------------------------------------------------------" << endl;
-      cout << "Direct iteration to store the primal computational graph." << endl;
-      cout << "Compute residuals to check the convergence of the direct problem." << endl;
-    }
-
     iteration->RegisterInput(solver_container, geometry_container, config_container, ZONE_0, INST_0, kind_recording);
   }
 
@@ -388,12 +303,7 @@ void CDiscAdjSinglezoneDriver::SetRecording(RECORDING kind_recording){
 
   /*--- Do one iteration of the direct solver ---*/
 
-  if (config->GetKind_DiscreteAdjoint() == ENUM_DISC_ADJ_TYPE::RESIDUALS) {
-      DirectRun_Residual(kind_recording);
-  }
-  else {
-      DirectRun_FixedPoint(kind_recording);
-  }
+  DirectRun(kind_recording);
 
   /*--- Store the recording state ---*/
 
@@ -466,10 +376,10 @@ void CDiscAdjSinglezoneDriver::SetObjFunction(){
   /*--- Specific scalar objective functions ---*/
 
   switch (config->GetKind_Solver()) {
-  case DISC_ADJ_INC_EULER:       case DISC_ADJ_INC_NAVIER_STOKES:      case DISC_ADJ_INC_RANS:
-  case DISC_ADJ_EULER:           case DISC_ADJ_NAVIER_STOKES:          case DISC_ADJ_RANS:
-  case DISC_ADJ_FEM_EULER:       case DISC_ADJ_FEM_NS:                 case DISC_ADJ_FEM_RANS:
-  case DISC_ADJ_NEMO_EULER:      case DISC_ADJ_NEMO_NAVIER_STOKES:
+  case MAIN_SOLVER::DISC_ADJ_INC_EULER:       case MAIN_SOLVER::DISC_ADJ_INC_NAVIER_STOKES:      case MAIN_SOLVER::DISC_ADJ_INC_RANS:
+  case MAIN_SOLVER::DISC_ADJ_EULER:           case MAIN_SOLVER::DISC_ADJ_NAVIER_STOKES:          case MAIN_SOLVER::DISC_ADJ_RANS:
+  case MAIN_SOLVER::DISC_ADJ_FEM_EULER:       case MAIN_SOLVER::DISC_ADJ_FEM_NS:                 case MAIN_SOLVER::DISC_ADJ_FEM_RANS:
+  case MAIN_SOLVER::DISC_ADJ_NEMO_EULER:      case MAIN_SOLVER::DISC_ADJ_NEMO_NAVIER_STOKES:
 
 
     solver[FLOW_SOL]->SetTotal_ComboObj(0.0);
@@ -516,7 +426,7 @@ void CDiscAdjSinglezoneDriver::SetObjFunction(){
     }
     break;
 
-  case DISC_ADJ_HEAT:
+  case MAIN_SOLVER::DISC_ADJ_HEAT:
     switch (config->GetKind_ObjFunc()){
     case TOTAL_HEATFLUX:
       ObjFunc = solver[HEAT_SOL]->GetTotal_HeatFlux();
@@ -529,11 +439,14 @@ void CDiscAdjSinglezoneDriver::SetObjFunction(){
     }
     break;
 
-  case DISC_ADJ_FEM:
+  case MAIN_SOLVER::DISC_ADJ_FEM:
     solver[FEA_SOL]->Postprocessing(geometry, config, numerics_container[ZONE_0][INST_0][MESH_0][FEA_SOL], true);
     solver[FEA_SOL]->Evaluate_ObjFunc(config);
     ObjFunc = solver[FEA_SOL]->GetTotal_ComboObj();
     break;
+
+  default:
+    break;  
   }
 
   if (rank == MASTER_NODE){
@@ -542,7 +455,7 @@ void CDiscAdjSinglezoneDriver::SetObjFunction(){
 
 }
 
-void CDiscAdjSinglezoneDriver::DirectRun_FixedPoint(RECORDING kind_recording) {
+void CDiscAdjSinglezoneDriver::DirectRun(RECORDING kind_recording){
 
   /*--- Mesh movement ---*/
 
@@ -563,91 +476,6 @@ void CDiscAdjSinglezoneDriver::DirectRun_FixedPoint(RECORDING kind_recording) {
   /*--- Print the direct residual to screen ---*/
 
   Print_DirectResidual(kind_recording);
-
-}
-
-void CDiscAdjSinglezoneDriver::DirectRun_Residual(RECORDING kind_recording) {
-
-    /*--- Mesh movement ---*/
-
-    direct_iteration->SetMesh_Deformation(geometry_container[ZONE_0][INST_0], solver, numerics, config, kind_recording);
-
-    /*--- Residuals calculation ---*/
-
-    Update_DirectSolution();
-
-    /*--- Print the direct residual to screen ---*/
-
-    Print_DirectResidual(kind_recording);
-}
-
-void CDiscAdjSinglezoneDriver::Print_DirectResidual(RECORDING kind_recording){
-
-  /*--- Print the residuals of the direct iteration that we just recorded ---*/
-  /*--- This routine should be moved to the output, once the new structure is in place ---*/
-  if ((rank == MASTER_NODE) && (kind_recording == MainVariables)){
-
-    switch (config->GetKind_Solver()) {
-
-    case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
-    case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:
-    case DISC_ADJ_FEM_EULER : case DISC_ADJ_FEM_NS : case DISC_ADJ_FEM_RANS :
-    case DISC_ADJ_NEMO_EULER: case DISC_ADJ_NEMO_NAVIER_STOKES: 
-      cout << "log10[U(0)]: "   << log10(solver[FLOW_SOL]->GetRes_RMS(0))
-           << ", log10[U(1)]: " << log10(solver[FLOW_SOL]->GetRes_RMS(1))
-           << ", log10[U(2)]: " << log10(solver[FLOW_SOL]->GetRes_RMS(2)) << "." << endl;
-      cout << "log10[U(3)]: " << log10(solver[FLOW_SOL]->GetRes_RMS(3));
-      if (geometry->GetnDim() == 3) cout << ", log10[U(4)]: " << log10(solver[FLOW_SOL]->GetRes_RMS(4));
-      cout << "." << endl;
-      if ( config->GetKind_Turb_Model() != NONE && !config->GetFrozen_Visc_Disc()) {
-        cout << "log10[Turb(0)]: "   << log10(solver[TURB_SOL]->GetRes_RMS(0));
-        if (solver[TURB_SOL]->GetnVar() > 1) cout << ", log10[Turb(1)]: " << log10(solver[TURB_SOL]->GetRes_RMS(1));
-        cout << "." << endl;
-      }
-      if (config->GetWeakly_Coupled_Heat()){
-        cout << "log10[Heat(0)]: "   << log10(solver[HEAT_SOL]->GetRes_RMS(0)) << "." << endl;
-      }
-      if ( config->AddRadiation()) {
-        cout <<"log10[E(rad)]: " << log10(solver[RAD_SOL]->GetRes_RMS(0)) << endl;
-      }
-      break;
-
-    case DISC_ADJ_FEM:
-
-      if (config->GetGeometricConditions() == STRUCT_DEFORMATION::LARGE){
-        cout << "UTOL-A: "   << log10(solver[FEA_SOL]->GetRes_FEM(0))
-             << ", RTOL-A: " << log10(solver[FEA_SOL]->GetRes_FEM(1))
-             << ", ETOL-A: " << log10(solver[FEA_SOL]->GetRes_FEM(2)) << "." << endl;
-      }
-      else{
-        if (geometry->GetnDim() == 2){
-          cout << "log10[RMS Ux]: "   << log10(solver[FEA_SOL]->GetRes_RMS(0))
-               << ", log10[RMS Uy]: " << log10(solver[FEA_SOL]->GetRes_RMS(1)) << "." << endl;
-        }
-        else{
-          cout << "log10[RMS Ux]: "   << log10(solver[FEA_SOL]->GetRes_RMS(0))
-               << ", log10[RMS Uy]: " << log10(solver[FEA_SOL]->GetRes_RMS(1))
-               << ", log10[RMS Uz]: " << log10(solver[FEA_SOL]->GetRes_RMS(2))<< "." << endl;
-        }
-      }
-
-      break;
-
-    case DISC_ADJ_HEAT:
-      cout << "log10[Cons(0)]: "   << log10(solver[HEAT_SOL]->GetRes_RMS(0)) << "." << endl;
-      break;
-
-    }
-
-    cout << "-------------------------------------------------------------------------" << endl << endl;
-  }
-  else if ((rank == MASTER_NODE) && (kind_recording == SecondaryVariables) && (SecondaryVariables != RECORDING::CLEAR_INDICES)){
-    cout << endl << "Recording the computational graph with respect to the ";
-    switch (SecondaryVariables){
-      case RECORDING::MESH_COORDS: cout << "mesh coordinates." << endl;    break;
-      default:                     cout << "secondary variables." << endl; break;
-     }
-  }
 
 }
 
@@ -675,9 +503,6 @@ void CDiscAdjSinglezoneDriver::SecondaryRecording(){
 
   SetRecording(SecondaryVariables);
 
-}
-
-void CDiscAdjSinglezoneDriver::SecondaryRun_FixedPoint() {
   /*--- Initialize the adjoint of the output variables of the iteration with the adjoint solution
    *    of the current iteration. The values are passed to the AD tool. ---*/
 
@@ -703,136 +528,5 @@ void CDiscAdjSinglezoneDriver::SecondaryRun_FixedPoint() {
   /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
 
   AD::ClearAdjoints();
-
-}
-
-void CDiscAdjSinglezoneDriver::SecondaryRun_Residual() {
-    /*--- Initialize the adjoint of the output variables of the iteration with the adjoint solution
-     *--- of the previous iteration. The values are passed to the AD tool.
-     *--- Issues with iteration number should be dealt with once the output structure is in place. ---*/
-
-    iteration->InitializeAdjoint(solver_container, geometry_container, config_container, ZONE_0, INST_0);
-
-    /*--- Interpret the stored information by calling the corresponding routine of the AD tool. ---*/
-
-    AD::ComputeAdjoint();
-
-    /*--- Extract the adjoints of the residuals and store them for the next iteration ---*/
-
-    if (config->GetFluidProblem()) {
-        if (SecondaryVariables == RECORDING::MESH_COORDS) {
-            solver[ADJFLOW_SOL]->ExtractAdjoint_Geometry_Residual(geometry, config, nullptr, ENUM_VARIABLE::RESIDUALS);
-        }
-        else { // MESH_DEFORM
-            solver[ADJFLOW_SOL]->ExtractAdjoint_Geometry_Residual(geometry, config, solver[ADJMESH_SOL], ENUM_VARIABLE::RESIDUALS);
-        }
-    }
-
-    /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
-
-    AD::ClearAdjoints();
-
-    /*--- Initialize the adjoint of the objective function with 1.0. ---*/
-
-    SetAdj_ObjFunction();
-
-    /*--- Interpret the stored information by calling the corresponding routine of the AD tool. ---*/
-
-    AD::ComputeAdjoint();
-
-    /*--- Extract the adjoints of the objective function and store them for the next iteration ---*/
-
-    if (config->GetFluidProblem()) {
-        if (SecondaryVariables == RECORDING::MESH_COORDS) {
-            solver[ADJFLOW_SOL]->ExtractAdjoint_Geometry_Residual(geometry, config, nullptr, ENUM_VARIABLE::OBJECTIVE);
-        }
-        else { // MESH_DEFORM
-            solver[ADJMESH_SOL]->ExtractAdjoint_Geometry_Residual(geometry, config, solver[ADJFLOW_SOL], ENUM_VARIABLE::OBJECTIVE);
-        }
-    }
-
-    /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
-
-    AD::ClearAdjoints();
-
-    /*--- Initialize the adjoint of the vertex tractions with the corresponding adjoint vector. ---*/
-
-    solver[FLOW_SOL]->SetVertexTractionsAdjoint(geometry, config);
-
-    /*--- Interpret the stored information by calling the corresponding routine of the AD tool. ---*/
-
-    AD::ComputeAdjoint();
-
-    /*--- Extract the adjoints of the vertex tractions and store them for the next iteration ---*/
-
-    if (config->GetFluidProblem()) {
-        if (SecondaryVariables == RECORDING::MESH_COORDS) {
-            solver[ADJFLOW_SOL]->ExtractAdjoint_Geometry_Residual(geometry, config, nullptr, ENUM_VARIABLE::TRACTIONS);
-        }
-        else { // MESH_DEFORM
-            solver[ADJMESH_SOL]->ExtractAdjoint_Geometry_Residual(geometry, config, solver[ADJFLOW_SOL], ENUM_VARIABLE::TRACTIONS);
-        }
-    }
-
-    /*--- Clear the stored adjoint information to be ready for a new evaluation. ---*/
-
-    AD::ClearAdjoints();
-
-}
-
-void CDiscAdjSinglezoneDriver::Update_DirectSolution() {
-
-    //  TODO:   Update/set Far-field conditions here instead of in the setter for AoA and Mach
-    su2double Velocity_Ref = config->GetVelocity_Ref();
-    su2double Alpha                  = config->GetAoA()*PI_NUMBER/180.0;
-    su2double Beta                   = config->GetAoS()*PI_NUMBER/180.0;
-    su2double Mach                   = config->GetMach();
-    su2double Temperature            = config->GetTemperature_FreeStream();
-    su2double Temperature_ve         = config->GetTemperature_ve_FreeStream();
-    su2double Gas_Constant           = config->GetGas_Constant();
-    su2double Gamma                  = config->GetGamma();
-    su2double SoundSpeed             = sqrt(Gamma*Gas_Constant*Temperature);
-
-    const su2double *MassFrac = config->GetGas_Composition();
-    su2double *Mvec_Inf;
-    Mvec_Inf = new su2double[nDim];
-
-    if (nDim == 2) {
-        config->GetVelocity_FreeStreamND()[0] = cos(Alpha)*Mach*SoundSpeed/Velocity_Ref;
-        config->GetVelocity_FreeStreamND()[1] = sin(Alpha)*Mach*SoundSpeed/Velocity_Ref;
-
-      Mvec_Inf[0] = cos(Alpha)*Mach;
-      Mvec_Inf[1] = sin(Alpha)*Mach;
-    }
-    if (nDim == 3) {
-        config->GetVelocity_FreeStreamND()[0] = cos(Alpha)*cos(Beta)*Mach*SoundSpeed/Velocity_Ref;
-        config->GetVelocity_FreeStreamND()[1] = sin(Beta)*Mach*SoundSpeed/Velocity_Ref;
-        config->GetVelocity_FreeStreamND()[2] = sin(Alpha)*cos(Beta)*Mach*SoundSpeed/Velocity_Ref;
-
-      Mvec_Inf[0] = cos(Alpha)*cos(Beta)*Mach;
-      Mvec_Inf[1] = sin(Beta)*Mach;
-      Mvec_Inf[2] = sin(Alpha)*cos(Beta)*Mach;
-
-    }
-
-    /*--- Update the dual grid (without multigrid). ---*/
-    geometry->InitiateComms(geometry, config, COORDINATES);
-    geometry->CompleteComms(geometry, config, COORDINATES);
-
-    geometry->SetControlVolume(config, UPDATE);
-    geometry->SetBoundControlVolume(config, UPDATE);
-    geometry->SetMaxLength(config);
-
-    /*--- Flow and turbulent conservative state variables ---*/
-
-    direct_iteration->Preprocess(direct_output, integration_container, geometry_container, solver_container, numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
-
-    /*--- Solve the Euler, Navier-Stokes or Reynolds-averaged Navier-Stokes (RANS) equations (one iteration) ---*/
-
-    integration[FLOW_SOL]->ComputeResiduals(geometry_container, solver_container, numerics_container, config_container, FLOW_SOL, ZONE_0, INST_0);
-
-    /*--- Flow tractions ---*/
-
-    direct_iteration->Postprocess(direct_output, integration_container, geometry_container, solver_container, numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
 }

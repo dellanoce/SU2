@@ -57,9 +57,7 @@
 #include "../variables/CVariable.hpp"
 
 #ifdef HAVE_LIBROM
-#include "BasisGenerator.h"
-#include "QDEIM.h"
-#include "DEIM.h"
+#include "librom.h"
 #endif
 
 using namespace std;
@@ -330,12 +328,6 @@ public:
    * \brief Set the value of the max residual and RMS residual.
    * \param[in] val_iterlinsolver - Number of linear iterations.
    */
-  void ComputeResidual_RMS(const CGeometry *geometry, const CConfig *config);
-
-  /*!
-   * \brief Set the value of the max residual and RMS residual.
-   * \param[in] val_iterlinsolver - Number of linear iterations.
-   */
   void ComputeResidual_Multizone(const CGeometry *geometry, const CConfig *config);
 
   /*!
@@ -444,43 +436,11 @@ public:
                                            unsigned short RunTime_EqSystem) { }
 
   /*!
-   * \brief Set the RMS and MAX residual to zero.
-   */
-  inline void SetResToZero() {
-    SU2_OMP_MASTER {
-      for (auto& r : Residual_RMS) r = 0;
-      for (auto& r : Residual_Max) r = 0;
-      for (auto& p : Point_Max) p = 0;
-    }
-    END_SU2_OMP_MASTER
-    SU2_OMP_BARRIER
-  }
-
-  /*!
    * \brief Get the maximal residual, this is useful for the convergence history.
    * \param[in] val_var - Index of the variable.
    * \return Value of the biggest residual for the variable in the position <i>val_var</i>.
    */
   inline su2double GetRes_RMS(unsigned short val_var) const { return Residual_RMS[val_var]; }
-
-  /*!
-   * \brief Adds the maximal residual, this is useful for the convergence history (overload).
-   * \param[in] val_var - Index of the variable.
-   * \param[in] val_residual - Value of the residual to store in the position <i>val_var</i>.
-   * \param[in] val_point - Value of the point index for the max residual.
-   * \param[in] val_coord - Location (x, y, z) of the max residual point.
-   */
-  inline void AddRes_Max(unsigned short val_var,
-                         su2double val_residual,
-                         unsigned long val_point,
-                         const su2double* val_coord) {
-    if (val_residual > Residual_Max[val_var]) {
-      Residual_Max[val_var] = val_residual;
-      Point_Max[val_var] = val_point;
-      for (unsigned short iDim = 0; iDim < nDim; iDim++)
-        Point_Max_Coord[val_var][iDim] = val_coord[iDim];
-    }
-  }
 
   /*!
    * \brief Get the maximal residual, this is useful for the convergence history.
@@ -495,25 +455,6 @@ public:
    * \return Value of the biggest residual for the variable in the position <i>val_var</i>.
    */
   inline su2double GetRes_BGS(unsigned short val_var) const { return Residual_BGS[val_var]; }
-
-  /*!
-   * \brief Adds the maximal residual for BGS subiterations.
-   * \param[in] val_var - Index of the variable.
-   * \param[in] val_residual - Value of the residual to store in the position <i>val_var</i>.
-   * \param[in] val_point - Value of the point index for the max residual.
-   * \param[in] val_coord - Location (x, y, z) of the max residual point.
-   */
-  inline void AddRes_Max_BGS(unsigned short val_var,
-                             su2double val_residual,
-                             unsigned long val_point,
-                             const su2double* val_coord) {
-    if (val_residual > Residual_Max_BGS[val_var]) {
-    Residual_Max_BGS[val_var] = val_residual;
-    Point_Max_BGS[val_var] = val_point;
-    for (unsigned short iDim = 0; iDim < nDim; iDim++)
-      Point_Max_Coord_BGS[val_var][iDim] = val_coord[iDim];
-    }
-  }
 
   /*!
    * \brief Get the maximal residual for BGS subiterations.
@@ -930,34 +871,6 @@ public:
   inline virtual void BC_Damper(CGeometry *geometry,
                                 const CConfig *config,
                                 unsigned short val_marker) { }
-
-  /*!
-   * \brief A virtual member.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] numerics - Description of the numerical method.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] val_marker - Surface marker where the boundary condition is applied.
-   */
-  inline virtual void BC_Interface_Boundary(CGeometry *geometry,
-                                            CSolver **solver_container,
-                                            CNumerics *numerics,
-                                            CConfig *config,
-                                            unsigned short val_marker) { }
-
-  /*!
-   * \brief A virtual member.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] numerics - Description of the numerical method.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] val_marker - Surface marker where the boundary condition is applied.
-   */
-  inline virtual void BC_NearField_Boundary(CGeometry *geometry,
-                                            CSolver **solver_container,
-                                            CNumerics *numerics,
-                                            CConfig *config,
-                                            unsigned short val_marker) { }
 
   /*!
    * \brief A virtual member.
@@ -1683,16 +1596,6 @@ public:
 
   /*!
    * \brief A virtual member.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] config - Definition of the particular problem.
-   */
-  inline virtual void SetIntBoundary_Jump(CGeometry *geometry,
-                                          CSolver **solver_container,
-                                          CConfig *config) { }
-
-  /*!
-   * \brief A virtual member.
    * \param[in] val_Total_CD - Value of the total drag coefficient.
    */
   inline virtual void SetTotal_CD(su2double val_Total_CD) { }
@@ -1854,80 +1757,6 @@ public:
                                           CSolver **solver_container,
                                           CNumerics *numerics,
                                           CConfig *config) { }
-
-  /*!
-   * \brief Get partial derivative dIdq.
-   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
-   * \param[in] iVar   - Variable index.
-   * \return Sensitivitiy of aero funcs wrt flow states.
-   */
-  inline virtual su2double GetDerivative_dIdq(unsigned long iPoint, unsigned long iVar) const { return 0.0; }
-
-  /*!
-   * \brief Get partial derivative dIdxv.
-   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
-   * \param[in] iDim   - Dimension
-   * \return Sensitivitiy of aero funcs wrt volume coordinates.
-   */
-  inline virtual su2double GetDerivative_dIdxv(unsigned long iPoint, unsigned long iDim) const { return 0.0; }
-
-  /*!
-   * \brief Get partial derivative dIdxt.
-   * \param[in] iVar - Variable index.
-   * \return Sensitivitiy of aero funcs wrt design variables (Mach and AoA for now).
-   */
-  inline virtual su2double GetDerivative_dIdxt(unsigned long iVar) const { return 0.0; }
-
-  /*!
-   * \brief Get partial derivative dIdua.
-   * \param[in] iMarker - Marker identifier.
-   * \return Sensitivitiy of aero funcs wrt FSI boundary displacements.
-   */
-  inline virtual vector<su2double> GetDerivative_dIdua(unsigned short iMarker) const { return vector<su2double>{}; }
-
-  /*!
-   * \brief Get matrix-vector product dAdq^T x psi.
-   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
-   * \param[in] iVar   - Variable index.
-   * \return Sensitivitiy of aero resids wrt flow states.
-   */
-  inline virtual su2double GetDerivative_dAdq(unsigned long iPoint, unsigned long iVar) const { return 0.0; }
-
-  /*!
-   * \brief Get matrix-vector product dAdxv^T x psi.
-   * \param[in] iPoint - Vertex in fluid domain where the sensitivity is computed.
-   * \param[in] iDim   - Dimension
-   * \return Sensitivitiy of aero resids wrt volume coordinates.
-   */
-  inline virtual su2double GetDerivative_dAdxv(unsigned long iPoint, unsigned long iDim) const { return 0.0; }
-
-  /*!
-   * \brief Get matrix-vector product dAdxt^T x psi.
-   * \param[in] iVar - Variable index.
-   * \return Sensitivitiy of aero resids wrt design variables (Mach and AoA for now).
-   */
-  inline virtual su2double GetDerivative_dAdxt(unsigned long iVar) const { return 0.0; }
-
-  /*!
-   * \brief Get matrix-vector product dAdua^T x psi.
-   * \param[in] iMarker - Marker identifier.
-   * \return Sensitivitiy of aero resids wrt FSI boundary displacements.
-   */
-  inline virtual vector<su2double> GetDerivative_dAdua(unsigned short iMarker) const { return vector<su2double>{}; }
-
-  /*!
-   * \brief Get matrix-vector product dfadq^T x psi.
-   * \param[in] iMarker - Marker identifier.
-   * \return Sensitivitiy of aero tractions wrt wrt flow states.
-   */
-  inline virtual su2double GetDerivative_dfadq(unsigned long iPoint, unsigned long iVar) const { return 0.0; } ;
-
-  /*!
-   * \brief Get matrix-vector product dfadxv^T x psi.
-   * \param[in] iMarker - Marker identifier.
-   * \return Sensitivitiy of aero tractions wrt volume coordinates.
-   */
-  inline virtual su2double GetDerivative_dfadxv(unsigned long iPoint, unsigned long iDim) const { return 0.0; } ;
 
   /*!
    * \brief A virtual member.
@@ -3745,24 +3574,6 @@ public:
   inline virtual void ExtractAdjoint_Solution(CGeometry *geometry, CConfig *config, bool CrossTerm){}
 
   /*!
-   * \brief A virtual member.
-   * \param[in] geometry - The geometrical definition of the problem.
-   * \param[in] solver_container - The solver container holding all solutions.
-   * \param[in] config - The particular config.
-   * \param[in] output - Kind of output variables.
-   */
-  inline virtual void ExtractAdjoint_Solution_Residual(CGeometry *geometry, CConfig *config, ENUM_VARIABLE variable){}
-
-  /*!
-   * \brief A virtual member.
-   * \param[in] geometry - The geometrical definition of the problem.
-   * \param[in] solver_container - The solver container holding all solutions.
-   * \param[in] config - The particular config = false.
-   * \param[in] objective - Kind of output variables.
-   */
-  inline virtual void ExtractAdjoint_Geometry_Residual(CGeometry *geometry, CConfig *config, CSolver *mesh_solver, ENUM_VARIABLE variable){}
-
-  /*!
    * \brief  A virtual member.
    * \param[in] geometry - Geometrical definition of the problem.
    * \param[in] config - Definition of the particular problem.
@@ -3960,15 +3771,6 @@ public:
    * \param[in] config - Definition of the particular problem.
    */
   inline virtual void ExtractAdjoint_Variables(CGeometry *geometry, CConfig *config) { }
-
-  /*!
-   * \brief A virtual member.
-   * \param[in] geometry - The geometrical definition of the problem.
-   * \param[in] solver_container - The solver container holding all solutions.
-   * \param[in] config - The particular config.
-   * \param[in] output - Kind of output variables.
-   */
-  inline virtual void ExtractAdjoint_Variables_Residual(CGeometry *geometry, CConfig *config, ENUM_VARIABLE variable) { }
 
   /*!
    * \brief A virtual member.
@@ -4356,16 +4158,8 @@ public:
    * \param[in] config - Definition of the particular problem.
    * \param[in] referenceCoord - Determine if the mesh is deformed from the reference or from the current coordinates.
    */
-  inline virtual void DeformMesh(CGeometry *geometry,
-                                 CNumerics **numerics,
-                                 CConfig *config) { }
-
-  /*!
-   * \brief A virtual member.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] referenceCoord - Determine if the mesh is deformed from the reference or from the current coordinates.
-   */
-  inline virtual void SetMesh_Stiffness(CGeometry **geometry, CNumerics **numerics,
+  inline virtual void SetMesh_Stiffness(CGeometry **geometry,
+                                        CNumerics **numerics,
                                         CConfig *config) { }
 
   /*!
@@ -4414,16 +4208,6 @@ public:
    */
   inline su2double GetVertexTractions(unsigned short iMarker, unsigned long iVertex, unsigned short iDim) const {
     return VertexTraction[iMarker][iVertex][iDim];
-  }
-
-  /*!
-   * \brief Get the adjoints of the vertex tractions.
-   * \param[in] iMarker  - Index of the marker
-   * \param[in] iVertex  - Index of the relevant vertex
-   * \param[in] iDim     - Dimension
-   */
-  inline su2double GetAdjointVertexTractions(unsigned short iMarker, unsigned long iVertex, unsigned short iDim) const {
-    return VertexTractionAdjoint[iMarker][iVertex][iDim];
   }
 
   /*!
@@ -4497,4 +4281,94 @@ protected:
   void SetVerificationSolution(unsigned short nDim,
                                unsigned short nVar,
                                CConfig        *config);
+
+  /*!
+   * \brief "Add" residual at (iPoint,iVar) to residual variables local to the thread.
+   *  \param[in] iPoint - Point index.
+   *  \param[in] iVar - Variable index.
+   *  \param[in] res - Residual at (iPoint,iVar), e.g. LinSysRes(iPoint,iVar)
+   *  \param[in,out] resRMS - increases by pow(Residual, 2)
+   *  \param[in,out] resMax - increases to max(resMax, Residual)
+   *  \param[in,out] idxMax - changes when resMax increases
+   */
+  static inline void ResidualReductions_PerThread(unsigned long iPoint, unsigned short iVar, su2double res, su2double* resRMS, su2double* resMax,
+                                                  unsigned long* idxMax) {
+    res = fabs(res);
+    resRMS[iVar] += res * res;
+    if (res > resMax[iVar]) {
+      resMax[iVar] = res;
+      idxMax[iVar] = iPoint;
+    }
+  }
+
+  /*!
+   * \brief "Add" local residual variables of all threads to compute global residual variables.
+   */
+  inline void ResidualReductions_FromAllThreads(const CGeometry* geometry, const CConfig* config, const su2double* resRMS, const su2double* resMax,
+                                                const unsigned long* idxMax){
+    SetResToZero();
+
+    SU2_OMP_CRITICAL
+    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+      Residual_RMS[iVar] += resRMS[iVar];
+      AddRes_Max(iVar, resMax[iVar], geometry->nodes->GetGlobalIndex(idxMax[iVar]), geometry->nodes->GetCoord(idxMax[iVar]));
+    }
+    END_SU2_OMP_CRITICAL
+    SU2_OMP_BARRIER
+
+    /*--- Compute the root mean square residual ---*/
+    SetResidual_RMS(geometry, config);
+  }
+
+  /*!
+   * \brief Set the RMS and MAX residual to zero.
+   */
+  inline void SetResToZero() {
+    SU2_OMP_MASTER {
+      for (auto& r : Residual_RMS) r = 0;
+      for (auto& r : Residual_Max) r = 0;
+      for (auto& p : Point_Max) p = 0;
+    }
+    END_SU2_OMP_MASTER
+    SU2_OMP_BARRIER
+  }
+
+  /*!
+   * \brief Adds the maximal residual, this is useful for the convergence history.
+   * \param[in] val_var - Index of the variable.
+   * \param[in] val_residual - Value of the residual to store in the position <i>val_var</i>.
+   * \param[in] val_point - Value of the point index for the max residual.
+   * \param[in] val_coord - Location (x, y, z) of the max residual point.
+   */
+  inline void AddRes_Max(unsigned short val_var,
+                         su2double val_residual,
+                         unsigned long val_point,
+                         const su2double* val_coord) {
+    if (val_residual > Residual_Max[val_var]) {
+      Residual_Max[val_var] = val_residual;
+      Point_Max[val_var] = val_point;
+      for (unsigned short iDim = 0; iDim < nDim; iDim++)
+        Point_Max_Coord[val_var][iDim] = val_coord[iDim];
+    }
+  }
+
+  /*!
+   * \brief Adds the maximal residual for BGS subiterations.
+   * \param[in] val_var - Index of the variable.
+   * \param[in] val_residual - Value of the residual to store in the position <i>val_var</i>.
+   * \param[in] val_point - Value of the point index for the max residual.
+   * \param[in] val_coord - Location (x, y, z) of the max residual point.
+   */
+  inline void AddRes_Max_BGS(unsigned short val_var,
+                             su2double val_residual,
+                             unsigned long val_point,
+                             const su2double* val_coord) {
+    if (val_residual > Residual_Max_BGS[val_var]) {
+    Residual_Max_BGS[val_var] = val_residual;
+    Point_Max_BGS[val_var] = val_point;
+    for (unsigned short iDim = 0; iDim < nDim; iDim++)
+      Point_Max_Coord_BGS[val_var][iDim] = val_coord[iDim];
+    }
+  }
+
 };

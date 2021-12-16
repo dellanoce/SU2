@@ -62,7 +62,7 @@ protected:
   CNEMOGas  *FluidModel;          /*!< \brief fluid model used in the solver */
 
   CNEMOEulerVariable* node_infty = nullptr;
-  CNEMOEulerVariable* node_bc    = nullptr;
+  CNEMOEulerVariable* node_bc = nullptr;
 
   /*!
    * \brief Set the maximum value of the eigenvalue.
@@ -230,6 +230,12 @@ public:
    * \return Value of the pressure at the infinity.
    */
   inline CNEMOGas* GetFluidModel(void) const final { return FluidModel;}
+
+  /*!
+   * \brief Compute weighted-sum "combo" objective output
+   * \param[in] config - Definition of the particular problem.
+   */
+  void Evaluate_ObjFunc(const CConfig *config) override;
 
   /*!
    * \brief Impose the far-field boundary condition using characteristics.
