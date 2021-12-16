@@ -461,10 +461,10 @@ void CConfig::addFFDDegreeOption(const string name, unsigned short & nFFD_field,
 }
 
 void CConfig::addStringDoubleListOption(const string name, unsigned short & list_size, string * & string_field,
-                               su2double* & double_field) {
+                                        su2double* & double_field) {
   assert(option_map.find(name) == option_map.end());
   all_options.insert(pair<string, bool>(name, true));
-  COptionBase* val = new COptionStringDoubleList(name, list_size, string_field, double_field);
+  COptionBase* val = new COptionStringValuesList<su2double>(name, list_size, string_field, double_field);
   option_map.insert(pair<string, COptionBase *>(name, val));
 }
 
@@ -473,6 +473,16 @@ void CConfig::addInletOption(const string name, unsigned short & nMarker_Inlet, 
   assert(option_map.find(name) == option_map.end());
   all_options.insert(pair<string, bool>(name, true));
   COptionBase* val = new COptionInlet(name, nMarker_Inlet, Marker_Inlet, Ttotal, Ptotal, FlowDir);
+  option_map.insert(pair<string, COptionBase *>(name, val));
+}
+
+void CConfig::addInletSpeciesOption(const string name, unsigned short & nMarker_Inlet_Species,
+                                    string * & Marker_Inlet_Species, su2double** & inlet_species_val,
+                                    unsigned short & nSpecies_per_Inlet) {
+  assert(option_map.find(name) == option_map.end());
+  all_options.insert(pair<string, bool>(name, true));
+  COptionBase* val = new COptionStringValuesList<su2double*>(name, nMarker_Inlet_Species, Marker_Inlet_Species,
+                                                             inlet_species_val, nSpecies_per_Inlet);
   option_map.insert(pair<string, COptionBase *>(name, val));
 }
 
@@ -823,7 +833,7 @@ void CConfig::SetPointersNull(void) {
   Marker_SymWall              = nullptr;    Marker_PerBound             = nullptr;
   Marker_PerDonor             = nullptr;    Marker_NearFieldBound       = nullptr;
   Marker_Deform_Mesh          = nullptr;    Marker_Deform_Mesh_Sym_Plane= nullptr;    Marker_Fluid_Load          = nullptr;
-  Marker_Inlet                = nullptr;    Marker_Outlet               = nullptr;
+  Marker_Inlet                = nullptr;    Marker_Outlet               = nullptr;    Marker_Inlet_Species       = nullptr;
   Marker_Supersonic_Inlet     = nullptr;    Marker_Supersonic_Outlet    = nullptr;    Marker_Smoluchowski_Maxwell= nullptr;
   Marker_Isothermal           = nullptr;    Marker_HeatFlux             = nullptr;    Marker_EngineInflow        = nullptr;
   Marker_Load                 = nullptr;    Marker_Disp_Dir             = nullptr;    Marker_RoughWall           = nullptr;
@@ -848,7 +858,7 @@ void CConfig::SetPointersNull(void) {
   Inlet_Ttotal    = nullptr;    Inlet_Ptotal      = nullptr;
   Inlet_FlowDir   = nullptr;    Inlet_Temperature = nullptr;    Inlet_Pressure = nullptr;
   Inlet_Velocity  = nullptr;    Inlet_MassFrac    = nullptr;
-  Outlet_Pressure = nullptr;
+  Outlet_Pressure = nullptr;    Inlet_SpeciesVal  = nullptr;
 
   /*--- Engine Boundary Condition settings ---*/
 
@@ -900,7 +910,8 @@ void CConfig::SetPointersNull(void) {
   ActDisk_ReverseMassFlow = nullptr;    Surface_MassFlow        = nullptr;   Surface_Mach             = nullptr;
   Surface_Temperature      = nullptr;   Surface_Pressure         = nullptr;  Surface_Density          = nullptr;   Surface_Enthalpy          = nullptr;
   Surface_NormalVelocity   = nullptr;   Surface_TotalTemperature = nullptr;  Surface_TotalPressure    = nullptr;   Surface_PressureDrop    = nullptr;
-  Surface_DC60             = nullptr;    Surface_IDC = nullptr;
+  Surface_DC60             = nullptr;   Surface_IDC = nullptr;
+  Surface_Species_Variance = nullptr;   Surface_Species_0 = nullptr;
 
   Outlet_MassFlow      = nullptr;       Outlet_Density      = nullptr;      Outlet_Area     = nullptr;
 
@@ -937,6 +948,12 @@ void CConfig::SetPointersNull(void) {
   Kind_ObjFunc   = nullptr;
 
   Weight_ObjFunc = nullptr;
+
+  /*--- Species solver pointers. ---*/
+
+  Species_Init           = nullptr;
+  Species_Clipping_Min   = nullptr;
+  Species_Clipping_Max   = nullptr;
 
   /*--- Moving mesh pointers ---*/
 
@@ -1066,7 +1083,7 @@ void CConfig::SetConfig_Options() {
   addEnumOption("SOLVER", Kind_Solver, Solver_Map, NO_SOLVER);
   /*!\brief MULTIZONE \n DESCRIPTION: Enable multizone mode \ingroup Config*/
   addBoolOption("MULTIZONE", Multizone_Problem, NO);
-  /*!\brief PHYSICAL_PROBLEM \n DESCRIPTION: Physical governing equations \n Options: see \link Solver_Map \endlink \n DEFAULT: NO_SOLVER \ingroup Config*/
+  /*!\brief PHYSICAL_PROBLEM \n DESCRIPTION: Physical governing equations \n Options: see \link Solver_Map \endlink \n DEFAULT: NONE \ingroup Config*/
   addEnumOption("MULTIZONE_SOLVER", Kind_MZSolver, Multizone_Map, ENUM_MULTIZONE::MZ_BLOCK_GAUSS_SEIDEL);
 #ifdef CODI_REVERSE_TYPE
   const bool discAdjDefault = true;
@@ -1075,18 +1092,19 @@ void CConfig::SetConfig_Options() {
 #endif
   /*!\brief MATH_PROBLEM  \n DESCRIPTION: Mathematical problem \n  Options: DIRECT, ADJOINT \ingroup Config*/
   addMathProblemOption("MATH_PROBLEM", ContinuousAdjoint, false, DiscreteAdjoint, discAdjDefault, Restart_Flow, discAdjDefault);
-  /*!\brief DISC_ADJ_TYPE  \n DESCRIPTION: Discrete adjoint problem formulation \n  Options: FIXED_POINT, RESIDUALS \ingroup Config*/
-  addEnumOption("KIND_DISC_ADJ", Kind_DiscreteAdjoint, DiscreteAdjoint_Map, ENUM_DISC_ADJ_TYPE::FIXED_POINT);
-  /*!\brief KIND_TURB_MODEL \n DESCRIPTION: Specify turbulence model \n Options: see \link Turb_Model_Map \endlink \n DEFAULT: NO_TURB_MODEL \ingroup Config*/
-  addEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, NO_TURB_MODEL);
-  /*!\brief KIND_TRANS_MODEL \n DESCRIPTION: Specify transition model OPTIONS: see \link Trans_Model_Map \endlink \n DEFAULT: NO_TRANS_MODEL \ingroup Config*/
-  addEnumOption("KIND_TRANS_MODEL", Kind_Trans_Model, Trans_Model_Map, NO_TRANS_MODEL);
+  /*!\brief KIND_TURB_MODEL \n DESCRIPTION: Specify turbulence model \n Options: see \link Turb_Model_Map \endlink \n DEFAULT: NONE \ingroup Config*/
+  addEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, TURB_MODEL::NONE);
+  /*!\brief KIND_TRANS_MODEL \n DESCRIPTION: Specify transition model OPTIONS: see \link Trans_Model_Map \endlink \n DEFAULT: NONE \ingroup Config*/
+  addEnumOption("KIND_TRANS_MODEL", Kind_Trans_Model, Trans_Model_Map, TURB_TRANS_MODEL::NONE);
 
-  /*!\brief KIND_SGS_MODEL \n DESCRIPTION: Specify subgrid scale model OPTIONS: see \link SGS_Model_Map \endlink \n DEFAULT: NO_SGS_MODEL \ingroup Config*/
-  addEnumOption("KIND_SGS_MODEL", Kind_SGS_Model, SGS_Model_Map, NO_SGS_MODEL);
+  /*!\brief KIND_SPECIES_MODEL \n DESCRIPTION: Specify scalar transport model \n Options: see \link Scalar_Model_Map \endlink \n DEFAULT: NONE \ingroup Config*/
+  addEnumOption("KIND_SCALAR_MODEL", Kind_Species_Model, Species_Model_Map, SPECIES_MODEL::NONE);
 
-  /*!\brief KIND_FEM_DG_SHOCK \n DESCRIPTION: Specify shock capturing method for DG OPTIONS: see \link ShockCapturingDG_Map \endlink \n DEFAULT: NO_SHOCK_CAPTURING \ingroup Config*/
-  addEnumOption("KIND_FEM_DG_SHOCK", Kind_FEM_DG_Shock, ShockCapturingDG_Map, NO_SHOCK_CAPTURING);
+  /*!\brief KIND_SGS_MODEL \n DESCRIPTION: Specify subgrid scale model OPTIONS: see \link SGS_Model_Map \endlink \n DEFAULT: NONE \ingroup Config*/
+  addEnumOption("KIND_SGS_MODEL", Kind_SGS_Model, SGS_Model_Map, TURB_SGS_MODEL::NONE);
+
+  /*!\brief KIND_FEM_DG_SHOCK \n DESCRIPTION: Specify shock capturing method for DG OPTIONS: see \link ShockCapturingDG_Map \endlink \n DEFAULT: NONE \ingroup Config*/
+  addEnumOption("KIND_FEM_DG_SHOCK", Kind_FEM_Shock_Capturing_DG, ShockCapturingDG_Map, FEM_SHOCK_CAPTURING_DG::NONE);
 
   /*!\brief KIND_VERIFICATION_SOLUTION \n DESCRIPTION: Specify the verification solution OPTIONS: see \link Verification_Solution_Map \endlink \n DEFAULT: NO_VERIFICATION_SOLUTION \ingroup Config*/
   addEnumOption("KIND_VERIFICATION_SOLUTION", Kind_Verification_Solution, Verification_Solution_Map, NO_VERIFICATION_SOLUTION);
@@ -1225,10 +1243,19 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("PRANDTL_LAM", Prandtl_Lam, 0.72);
   /*!\brief PRANDTL_TURB \n DESCRIPTION: Turbulent Prandtl number (0.9 (air), only for compressible flows) \n DEFAULT 0.90 \ingroup Config*/
   addDoubleOption("PRANDTL_TURB", Prandtl_Turb, 0.90);
-  /*!\brief WALLMODELKAPPA \n DESCRIPTION: von Karman constant used for the wall model \n DEFAULT 0.41 \ingroup Config*/
-  addDoubleOption("WALLMODELKAPPA", wallModelKappa, 0.41);
-  /*!\brief WALLMODELB \n DESCRIPTION: constant B used for the wall model \n DEFAULT 5.0 \ingroup Config*/
-  addDoubleOption("WALLMODELB", wallModelB, 5.5);
+  /*--- Options related to wall models. ---*/
+
+  /*!\brief WALLMODEL_KAPPA \n DESCRIPTION: von Karman constant used for the wall model \n DEFAULT 0.41 \ingroup Config*/
+  addDoubleOption("WALLMODEL_KAPPA", wallModel_Kappa, 0.41);
+  /*!\brief WALLMODEL_MAXITER \n DESCRIPTION: Max iterations used for the wall model \n DEFAULT 200 \ingroup Config*/
+  addUnsignedShortOption("WALLMODEL_MAXITER", wallModel_MaxIter, 200);
+  /*!\brief WALLMODEL_RELFAC \n DESCRIPTION: Relaxation factor used for the wall model \n DEFAULT 0.5 \ingroup Config*/
+  addDoubleOption("WALLMODEL_RELFAC", wallModel_RelFac, 0.5);
+  /*!\brief WALLMODEL_MINYPLUS \n DESCRIPTION: lower limit for Y+ used for the wall model \n DEFAULT 5.0 \ingroup Config*/
+  addDoubleOption("WALLMODEL_MINYPLUS", wallModel_MinYplus, 5.0);
+  /*!\brief WALLMODEL_B \n DESCRIPTION: constant B used for the wall model \n DEFAULT 5.5 \ingroup Config*/
+  addDoubleOption("WALLMODEL_B", wallModel_B, 5.5);
+
   /*!\brief BULK_MODULUS \n DESCRIPTION: Value of the Bulk Modulus  \n DEFAULT 1.42E5 \ingroup Config*/
   addDoubleOption("BULK_MODULUS", Bulk_Modulus, 1.42E5);
   /* DESCRIPTION: Epsilon^2 multipier in Beta calculation for incompressible preconditioner.  */
@@ -1276,6 +1303,30 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("INC_INLET_DAMPING", Inc_Inlet_Damping, 0.1);
   /*!\brief INC_OUTLET_DAMPING \n DESCRIPTION: Damping factor applied to the iterative updates to the pressure at a mass flow outlet in incompressible flow (0.1 by default). \ingroup Config*/
   addDoubleOption("INC_OUTLET_DAMPING", Inc_Outlet_Damping, 0.1);
+
+  /*--- Options related to the species solver. ---*/
+
+  /*!\brief SPECIES_INIT \n DESCRIPTION: Initial values for scalar transport \ingroup Config*/
+  addDoubleListOption("SPECIES_INIT", nSpecies_Init, Species_Init);
+  /*!\brief SPECIES_CLIPPING \n DESCRIPTION: Activate clipping for scalar transport equations \n DEFAULT: false \ingroup Config*/
+  addBoolOption("SPECIES_CLIPPING", Species_Clipping, false);
+  /*!\brief SPECIES_CLIPPING_MAX \n DESCRIPTION: Maximum values for scalar clipping \ingroup Config*/
+  addDoubleListOption("SPECIES_CLIPPING_MAX", nSpecies_Clipping_Max, Species_Clipping_Max);
+  /*!\brief SPECIES_CLIPPING_MIN \n DESCRIPTION: Minimum values for scalar clipping \ingroup Config*/
+  addDoubleListOption("SPECIES_CLIPPING_MIN", nSpecies_Clipping_Min, Species_Clipping_Min);
+  /*!\brief SPECIES_CLIPPING \n DESCRIPTION: Use strong inlet and outlet BC in the species solver \n DEFAULT: false \ingroup Config*/
+  addBoolOption("SPECIES_USE_STRONG_BC", Species_StrongBC, false);
+
+  /*--- Options related to mass diffusivity and thereby the species solver. ---*/
+
+  /*!\brief DIFFUSIVITY_MODEL\n DESCRIPTION: mass diffusivity model \n DEFAULT constant disffusivity \ingroup Config*/
+  addEnumOption("DIFFUSIVITY_MODEL", Kind_Diffusivity_Model, Diffusivity_Model_Map, DIFFUSIVITYMODEL::CONSTANT_DIFFUSIVITY);
+  /*!\brief DIFFUSIVITY_CONSTANT\n DESCRIPTION: mass diffusivity if DIFFUSIVITYMODEL::CONSTANT_DIFFUSIVITY is chosen \n DEFAULT 0.001 (Air) \ingroup Config*/
+  addDoubleOption("DIFFUSIVITY_CONSTANT", Diffusivity_Constant , 0.001);
+  /*!\brief SCHMIDT_LAM \n DESCRIPTION: Laminar Schmidt number of mass diffusion \n DEFAULT 1.0 (~for Gases) \ingroup Config*/
+  addDoubleOption("SCHMIDT_NUMBER_LAMINAR", Schmidt_Number_Laminar, 1.0);
+  /*!\brief SCHMIDT_TURB \n DESCRIPTION: Turbulent Schmidt number of mass diffusion \n DEFAULT 0.70 (more or less experimental value) \ingroup Config*/
+  addDoubleOption("SCHMIDT_NUMBER_TURBULENT", Schmidt_Number_Turbulent, 0.7);
 
   vel_inf[0] = 1.0; vel_inf[1] = 0.0; vel_inf[2] = 0.0;
   /*!\brief FREESTREAM_VELOCITY\n DESCRIPTION: Free-stream velocity (m/s) */
@@ -1440,6 +1491,9 @@ void CConfig::SetConfig_Options() {
    flow_direction_y, flow_direction_z, ... ) where flow_direction is
    a unit vector. \ingroup Config*/
   addInletOption("MARKER_INLET", nMarker_Inlet, Marker_Inlet, Inlet_Ttotal, Inlet_Ptotal, Inlet_FlowDir);
+  /*!\brief MARKER_INLET_SPECIES \n DESCRIPTION: Inlet Species boundary marker(s) with the following format
+   Inlet Species: (inlet_marker, Species1, Species2, ..., SpeciesN-1, inlet_marker2, Species1, Species2, ...) */
+  addInletSpeciesOption("MARKER_INLET_SPECIES",nMarker_Inlet_Species, Marker_Inlet_Species, Inlet_SpeciesVal, nSpecies_per_Inlet);
 
   /*!\brief MARKER_RIEMANN \n DESCRIPTION: Riemann boundary marker(s) with the following formats, a unit vector.
    * \n OPTIONS: See \link Riemann_Map \endlink. The variables indicated by the option and the flow direction unit vector must be specified. \ingroup Config*/
@@ -1630,6 +1684,8 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("CFL_REDUCTION_TURB", CFLRedCoeff_Turb, 1.0);
   /* DESCRIPTION: Reduction factor of the CFL coefficient in the turbulent adjoint problem */
   addDoubleOption("CFL_REDUCTION_ADJTURB", CFLRedCoeff_AdjTurb, 1.0);
+  /*!\brief CFL_REDUCTION_SPECIES \n DESCRIPTION: Reduction factor of the CFL coefficient in the species problem \n DEFAULT: 1.0 */
+  addDoubleOption("CFL_REDUCTION_SPECIES", CFLRedCoeff_Species, 1.0);
   /* DESCRIPTION: External iteration offset due to restart */
   addUnsignedLongOption("EXT_ITER_OFFSET", ExtIter_OffSet, 0);
   // these options share nRKStep as their size, which is not a good idea in general
@@ -1663,6 +1719,8 @@ void CConfig::SetConfig_Options() {
   addEnumOption("TIME_DISCRE_TURB", Kind_TimeIntScheme_Turb, Time_Int_Map, EULER_IMPLICIT);
   /* DESCRIPTION: Time discretization */
   addEnumOption("TIME_DISCRE_ADJTURB", Kind_TimeIntScheme_AdjTurb, Time_Int_Map, EULER_IMPLICIT);
+  /* DESCRIPTION: Time discretization for species equations */
+  addEnumOption("TIME_DISCRE_SPECIES", Kind_TimeIntScheme_Species, Time_Int_Map, EULER_IMPLICIT);
   /* DESCRIPTION: Time discretization */
   addEnumOption("TIME_DISCRE_FEA", Kind_TimeIntScheme_FEA, Time_Int_Map_FEA, STRUCT_TIME_INT::NEWMARK_IMPLICIT);
   /* DESCRIPTION: Time discretization for radiation problems*/
@@ -1726,7 +1784,7 @@ void CConfig::SetConfig_Options() {
   /*!\par CONFIG_CATEGORY: Convergence\ingroup Config*/
   /*--- Options related to convergence ---*/
 
-  // This option is deprecated. After a grace period until 7.2.1 the usage warning should become an error.
+  // This option is deprecated. After a grace period until 7.2.0 the usage warning should become an error.
   addStringOption("CONV_CRITERIA", ConvCriteria, "this option is deprecated");
   /*!\brief CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("CONV_RESIDUAL_MINVAL", MinLogResidual, -14.0);
@@ -1848,6 +1906,13 @@ void CConfig::SetConfig_Options() {
   addEnumOption("SLOPE_LIMITER_ADJTURB", Kind_SlopeLimit_AdjTurb, Limiter_Map, VENKATAKRISHNAN);
   /*!\brief CONV_NUM_METHOD_ADJTURB\n DESCRIPTION: Convective numerical method for the adjoint/turbulent problem \ingroup Config*/
   addConvectOption("CONV_NUM_METHOD_ADJTURB", Kind_ConvNumScheme_AdjTurb, Kind_Centered_AdjTurb, Kind_Upwind_AdjTurb);
+
+  /*!\brief MUSCL_SPECIES \n DESCRIPTION: Check if the MUSCL scheme should be used \n DEFAULT false \ingroup Config*/
+  addBoolOption("MUSCL_SPECIES", MUSCL_Species, false);
+  /*!\brief SLOPE_LIMITER_SPECIES \n DESCRIPTION: Slope limiter \n OPTIONS: See \link Limiter_Map \endlink \n DEFAULT NO_LIMITER \ingroup Config*/
+  addEnumOption("SLOPE_LIMITER_SPECIES", Kind_SlopeLimit_Species, Limiter_Map, NO_LIMITER);
+  /*!\brief CONV_NUM_METHOD_SPECIES \n DESCRIPTION: Convective numerical method for species transport \ingroup Config*/
+  addConvectOption("CONV_NUM_METHOD_SPECIES", Kind_ConvNumScheme_Species, Kind_Centered_Species, Kind_Upwind_Species);
 
   /*!\brief MUSCL_FLOW \n DESCRIPTION: Check if the MUSCL scheme should be used \ingroup Config*/
   addBoolOption("MUSCL_HEAT", MUSCL_Heat, false);
@@ -2002,7 +2067,7 @@ void CConfig::SetConfig_Options() {
   addBoolOption("WRT_AD_STATISTICS", Wrt_AD_Statistics, false);
   /*!\brief MARKER_ANALYZE_AVERAGE
    *  \n DESCRIPTION: Output averaged flow values on specified analyze marker.
-   *  Options: AREA, MASSFLUX, HYBRID
+   *  Options: AREA, MASSFLUX
    *  \n Use with MARKER_ANALYZE. \ingroup Config*/
   addEnumOption("MARKER_ANALYZE_AVERAGE", Kind_Average, Average_Map, AVERAGE_MASSFLUX);
   /*!\brief COMM_LEVEL
@@ -2771,25 +2836,25 @@ void CConfig::SetConfig_Options() {
 
   /* DESCRIPTION: Size of the edge groups colored for thread parallel edge loops (0 forces the reducer strategy). */
   addUnsignedLongOption("EDGE_COLORING_GROUP_SIZE", edgeColorGroupSize, 512);
-  
+
   /*--- options that are used for libROM ---*/
   /*!\par CONFIG_CATEGORY:libROM options \ingroup Config*/
-  
+
   /*!\brief SAVE_LIBROM \n DESCRIPTION: Flag for saving data with libROM. */
   addBoolOption("SAVE_LIBROM", libROM, false);
-  
+
   /*!\brief LIBROM_BASE_FILENAME \n DESCRIPTION: Output base file name for libROM   \ingroup Config*/
   addStringOption("LIBROM_BASE_FILENAME", libROMbase_FileName, string("su2"));
-  
+
   /*!\brief BASIS_GENERATION \n DESCRIPTION: Flag for saving data with libROM. */
   addEnumOption("BASIS_GENERATION", POD_Basis_Gen, POD_Map, POD_KIND::STATIC);
-  
+
   /*!\brief MAX_BASIS_DIM \n DESCRIPTION: Maximum number of basis vectors.*/
   addUnsignedShortOption("MAX_BASIS_DIM", maxBasisDim, 100);
-  
-  /*!\brief MAX_BASIS_DIM \n DESCRIPTION: Maximum number of basis vectors.*/
+
+  /*!\brief ROM_SAVE_FREQ \n DESCRIPTION: How often to save snapshots for unsteady problems.*/
   addUnsignedShortOption("ROM_SAVE_FREQ", rom_save_freq, 1);
-  
+
   /* END_CONFIG_OPTIONS */
 
 }
@@ -2900,7 +2965,7 @@ void CConfig::SetConfig_Parsing(istream& config_buffer){
             newString.append("UNST_RESTART_ITER is deprecated. Use RESTART_ITER instead.\n\n");
           else if (!option_name.compare("DYN_RESTART_ITER"))
             newString.append("DYN_RESTART_ITER is deprecated. Use RESTART_ITER instead.\n\n");
-          // This option is deprecated. After a grace period until 7.2.1 the usage warning should become an error.
+          // This option is deprecated. After a grace period until 7.2.0 the usage warning should become an error.
           /*else if (!option_name.compare("CONV_CRITERIA"))
             newString.append(string("CONV_CRITERIA is deprecated. SU2 will choose the criteria automatically based on the CONV_FIELD.\n") +
                              string("RESIDUAL for any RMS_* BGS_* value. CAUCHY for coefficients like DRAG etc.\n\n"));*/
@@ -3275,16 +3340,16 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
     }
   }
 
-  if (Kind_Solver == NAVIER_STOKES && Kind_Turb_Model != NONE){
+  if (Kind_Solver == MAIN_SOLVER::NAVIER_STOKES && Kind_Turb_Model != TURB_MODEL::NONE){
     SU2_MPI::Error("KIND_TURB_MODEL must be NONE if SOLVER= NAVIER_STOKES", CURRENT_FUNCTION);
   }
-  if (Kind_Solver == INC_NAVIER_STOKES && Kind_Turb_Model != NONE){
+  if (Kind_Solver == MAIN_SOLVER::INC_NAVIER_STOKES && Kind_Turb_Model != TURB_MODEL::NONE){
     SU2_MPI::Error("KIND_TURB_MODEL must be NONE if SOLVER= INC_NAVIER_STOKES", CURRENT_FUNCTION);
   }
-  if (Kind_Solver == RANS && Kind_Turb_Model == NONE){
+  if (Kind_Solver == MAIN_SOLVER::RANS && Kind_Turb_Model == TURB_MODEL::NONE){
     SU2_MPI::Error("A turbulence model must be specified with KIND_TURB_MODEL if SOLVER= RANS", CURRENT_FUNCTION);
   }
-  if (Kind_Solver == INC_RANS && Kind_Turb_Model == NONE){
+  if (Kind_Solver == MAIN_SOLVER::INC_RANS && Kind_Turb_Model == TURB_MODEL::NONE){
     SU2_MPI::Error("A turbulence model must be specified with KIND_TURB_MODEL if SOLVER= INC_RANS", CURRENT_FUNCTION);
   }
 
@@ -3297,9 +3362,9 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
       if (Kind_WallFunctions[iMarker] != WALL_FUNCTIONS::NONE)
         Wall_Functions = true;
 
-      if ((Kind_WallFunctions[iMarker] == WALL_FUNCTIONS::ADAPTIVE_FUNCTION) || (Kind_WallFunctions[iMarker] == WALL_FUNCTIONS::SCALABLE_FUNCTION)
-        || (Kind_WallFunctions[iMarker] == WALL_FUNCTIONS::NONEQUILIBRIUM_MODEL))
-
+      if ((Kind_WallFunctions[iMarker] == WALL_FUNCTIONS::ADAPTIVE_FUNCTION) ||
+          (Kind_WallFunctions[iMarker] == WALL_FUNCTIONS::SCALABLE_FUNCTION) ||
+          (Kind_WallFunctions[iMarker] == WALL_FUNCTIONS::NONEQUILIBRIUM_MODEL))
         SU2_MPI::Error(string("For RANS problems, use NONE, STANDARD_WALL_FUNCTION or EQUILIBRIUM_WALL_MODEL.\n"), CURRENT_FUNCTION);
 
     }
@@ -3458,7 +3523,8 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
         case SURFACE_MOM_DISTORTION:
         case SURFACE_SECOND_OVER_UNIFORM:
         case SURFACE_PRESSURE_DROP:
-        case AVG_NORMAL_VEL:
+        case SURFACE_SPECIES_0:
+        case SURFACE_SPECIES_VARIANCE:
         case CUSTOM_OBJFUNC:
           if (Kind_ObjFunc[iObj] != Obj_0) {
             SU2_MPI::Error(string("The following objectives can only be used for the first surface in a multi-objective \n")+
@@ -3466,7 +3532,8 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
                            string("INVERSE_DESIGN_PRESSURE, INVERSE_DESIGN_HEATFLUX, THRUST_COEFFICIENT, TORQUE_COEFFICIENT\n")+
                            string("FIGURE_OF_MERIT, SURFACE_TOTAL_PRESSURE, SURFACE_STATIC_PRESSURE, SURFACE_MASSFLOW\n")+
                            string("SURFACE_UNIFORMITY, SURFACE_SECONDARY, SURFACE_MOM_DISTORTION, SURFACE_SECOND_OVER_UNIFORM\n")+
-                           string("SURFACE_PRESSURE_DROP, SURFACE_STATIC_TEMPERATURE, CUSTOM_OBJFUNC.\n"), CURRENT_FUNCTION);
+                           string("SURFACE_PRESSURE_DROP, SURFACE_STATIC_TEMPERATURE, SURFACE_SPECIES_0\n")+
+                           string("SURFACE_SPECIES_VARIANCE, CUSTOM_OBJFUNC.\n"), CURRENT_FUNCTION);
           }
           break;
         default:
@@ -4046,18 +4113,18 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
   if (MGCycle == FULLMG_CYCLE) FinestMesh = nMGLevels;
 
   if ((Kind_Solver == NAVIER_STOKES) &&
-      (Kind_Turb_Model != NONE))
+      (Kind_Turb_Model != TURB_MODEL::NONE))
     Kind_Solver = RANS;
 
   if ((Kind_Solver == INC_NAVIER_STOKES) &&
-      (Kind_Turb_Model != NONE))
+      (Kind_Turb_Model != TURB_MODEL::NONE))
     Kind_Solver = INC_RANS;
 
   if (Kind_Solver == EULER ||
       Kind_Solver == INC_EULER ||
       Kind_Solver == NEMO_EULER ||
       Kind_Solver == FEM_EULER)
-    Kind_Turb_Model = NONE;
+    Kind_Turb_Model = TURB_MODEL::NONE;
 
   Kappa_2nd_Flow = jst_coeff[0];
   Kappa_4th_Flow = jst_coeff[1];
@@ -4318,6 +4385,11 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
     }
   }
 
+  if(Kind_TimeIntScheme_Turb != EULER_IMPLICIT &&
+     Kind_TimeIntScheme_Turb != EULER_EXPLICIT){
+    SU2_MPI::Error("Only TIME_DISCRE_TURB = EULER_IMPLICIT, EULER_EXPLICIT have been implemented.", CURRENT_FUNCTION);
+  }
+
   if (nIntCoeffs == 0) {
     nIntCoeffs = 2;
     Int_Coeffs = new su2double[2]; Int_Coeffs[0] = 0.25; Int_Coeffs[1] = 0.5;
@@ -4438,11 +4510,11 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
     for (int i=0; i<7; ++i) eng_cyl[i] /= 12.0;
   }
 
-  if ((Kind_Turb_Model != SA) && (Kind_Trans_Model == BC)){
+  if ((Kind_Turb_Model != TURB_MODEL::SA) && (Kind_Trans_Model == TURB_TRANS_MODEL::BC)){
     SU2_MPI::Error("BC transition model currently only available in combination with SA turbulence model!", CURRENT_FUNCTION);
   }
 
-  if (Kind_Trans_Model == LM) {
+  if (Kind_Trans_Model == TURB_TRANS_MODEL::LM) {
     SU2_MPI::Error("The LM transition model is under maintenance.", CURRENT_FUNCTION);
   }
 
@@ -4536,7 +4608,7 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
 
   /* --- Throw error if UQ used for any turbulence model other that SST --- */
 
-  if (Kind_Solver == RANS && Kind_Turb_Model != SST && Kind_Turb_Model != SST_SUST && using_uq){
+  if (Kind_Solver == RANS && Kind_Turb_Model != TURB_MODEL::SST && Kind_Turb_Model != TURB_MODEL::SST_SUST && using_uq){
     SU2_MPI::Error("UQ capabilities only implemented for NAVIER_STOKES solver SST turbulence model", CURRENT_FUNCTION);
   }
 
@@ -4992,7 +5064,7 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
    gradients for uwpind reconstruction. Set additional booleans to
    minimize overhead as appropriate. */
 
-  if (MUSCL_Flow || MUSCL_Turb || MUSCL_Heat || MUSCL_AdjFlow) {
+  if (MUSCL_Flow || MUSCL_Turb || MUSCL_Species || MUSCL_Heat || MUSCL_AdjFlow) {
 
     ReconstructionGradientRequired = true;
 
@@ -5066,6 +5138,16 @@ void CConfig::SetPostprocessing(SU2_COMPONENT val_software, unsigned short val_i
 
   if (GetGasModel() == "ARGON") {monoatomic = true;}
   else {monoatomic = false;}
+
+  /*--- Set number of Turbulence Variables. ---*/
+  switch (TurbModelFamily(Kind_Turb_Model)) {
+    case TURB_FAMILY::NONE:
+      nTurbVar = 0; break;
+    case TURB_FAMILY::SA:
+      nTurbVar = 1; break;
+    case TURB_FAMILY::KW:
+      nTurbVar = 2; break;
+  }
 
   // This option is deprecated. After a grace period until 7.2.1 the usage warning should become an error.
   if(OptionIsSet("CONV_CRITERIA") && rank == MASTER_NODE) {
@@ -5181,6 +5263,8 @@ void CConfig::SetMarkers(SU2_COMPONENT val_software) {
   Surface_TotalTemperature = new su2double[nMarker_Analyze] ();
   Surface_TotalPressure = new su2double[nMarker_Analyze] ();
   Surface_PressureDrop = new su2double[nMarker_Analyze] ();
+  Surface_Species_0 = new su2double[nMarker_Analyze] ();
+  Surface_Species_Variance = new su2double[nMarker_Analyze] ();
   Surface_DC60 = new su2double[nMarker_Analyze] ();
   Surface_IDC = new su2double[nMarker_Analyze] ();
   Surface_IDC_Mach = new su2double[nMarker_Analyze] ();
@@ -5629,16 +5713,17 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
         if (Kind_Regime == ENUM_REGIME::INCOMPRESSIBLE) cout << "Incompressible RANS equations." << endl;
         cout << "Turbulence model: ";
         switch (Kind_Turb_Model) {
-          case SA:        cout << "Spalart Allmaras" << endl; break;
-          case SA_NEG:    cout << "Negative Spalart Allmaras" << endl; break;
-          case SA_E:      cout << "Edwards Spalart Allmaras" << endl; break;
-          case SA_COMP:   cout << "Compressibility Correction Spalart Allmaras" << endl; break;
-          case SA_E_COMP: cout << "Compressibility Correction Edwards Spalart Allmaras" << endl; break;
-          case SST:       cout << "Menter's SST"     << endl; break;
-          case SST_SUST:  cout << "Menter's SST with sustaining terms" << endl; break;
+           case TURB_MODEL::NONE: break;
+          case TURB_MODEL::SA:        cout << "Spalart Allmaras" << endl; break;
+          case TURB_MODEL::SA_NEG:    cout << "Negative Spalart Allmaras" << endl; break;
+          case TURB_MODEL::SA_E:      cout << "Edwards Spalart Allmaras" << endl; break;
+          case TURB_MODEL::SA_COMP:   cout << "Compressibility Correction Spalart Allmaras" << endl; break;
+          case TURB_MODEL::SA_E_COMP: cout << "Compressibility Correction Edwards Spalart Allmaras" << endl; break;
+          case TURB_MODEL::SST:       cout << "Menter's SST"     << endl; break;
+          case TURB_MODEL::SST_SUST:  cout << "Menter's SST with sustaining terms" << endl; break;
         }
         if (QCR) cout << "Using Quadratic Constitutive Relation, 2000 version (QCR2000)" << endl;
-        if (Kind_Trans_Model == BC) cout << "Using the revised BC transition model (2020)" << endl;
+        if (Kind_Trans_Model == TURB_TRANS_MODEL::BC) cout << "Using the revised BC transition model (2020)" << endl;
         cout << "Hybrid RANS/LES: ";
         switch (Kind_HybridRANSLES){
           case NO_HYBRIDRANSLES: cout <<  "No Hybrid RANS/LES" << endl; break;
@@ -5669,12 +5754,12 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
       case FEM_LES:
         if (Kind_Regime == ENUM_REGIME::COMPRESSIBLE)   cout << "Compressible LES equations." << endl;
         if (Kind_Regime == ENUM_REGIME::INCOMPRESSIBLE) cout << "Incompressible LES equations." << endl;
-        cout << "Subgrid Scale model: ";
+        cout << "LES Subgrid Scale model: ";
         switch (Kind_SGS_Model) {
-          case IMPLICIT_LES: cout << "Implicit LES" << endl; break;
-          case SMAGORINSKY:  cout << "Smagorinsky " << endl; break;
-          case WALE:         cout << "WALE"         << endl; break;
-          case VREMAN:       cout << "VREMAN"         << endl; break;
+          case TURB_SGS_MODEL::IMPLICIT_LES: cout << "Implicit LES" << endl; break;
+          case TURB_SGS_MODEL::SMAGORINSKY:  cout << "Smagorinsky " << endl; break;
+          case TURB_SGS_MODEL::WALE:         cout << "WALE"         << endl; break;
+          case TURB_SGS_MODEL::VREMAN:       cout << "VREMAN"         << endl; break;
           default:
             SU2_MPI::Error("Subgrid Scale model not specified.", CURRENT_FUNCTION);
 
@@ -6112,7 +6197,6 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
         case SURFACE_TOTAL_PRESSURE:     cout << "Average total pressure objective function." << endl; break;
         case SURFACE_STATIC_PRESSURE:    cout << "Average static pressure objective function." << endl; break;
         case SURFACE_STATIC_TEMPERATURE: cout << "Average static temperature objective function." << endl; break;
-        case AVG_NORMAL_VEL:             cout << "Mass-averaged normal velocity."<<endl; break;
         case SURFACE_MASSFLOW:           cout << "Mass flow rate objective function." << endl; break;
         case SURFACE_MACH:               cout << "Mach number objective function." << endl; break;
         case CUSTOM_OBJFUNC:             cout << "Custom objective function." << endl; break;
@@ -6469,8 +6553,8 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
           break;
         case EULER_IMPLICIT:
           cout << "Euler implicit method for the flow equations." << endl;
-          if (Kind_Solver == NEMO_NAVIER_STOKES)
-            SU2_MPI::Error("Implicit time scheme is not working with NEMO for viscous problems. Use EULER_EXPLICIT.", CURRENT_FUNCTION);
+          if (Kind_FluidModel == MUTATIONPP)
+            SU2_MPI::Error("Implicit time scheme is not yet implemented with Mutation++. Use EULER_EXPLICIT.", CURRENT_FUNCTION);
           switch (Kind_Linear_Solver) {
             case BCGSTAB:
             case FGMRES:
@@ -6875,6 +6959,15 @@ void CConfig::SetOutput(SU2_COMPONENT val_software, unsigned short val_izone) {
     for (iMarker_Inlet = 0; iMarker_Inlet < nMarker_Inlet; iMarker_Inlet++) {
       BoundaryTable << Marker_Inlet[iMarker_Inlet];
       if (iMarker_Inlet < nMarker_Inlet-1)  BoundaryTable << " ";
+    }
+    BoundaryTable.PrintFooter();
+  }
+
+  if (nMarker_Inlet_Species != 0) {
+    BoundaryTable << "Species Inlet boundary";
+    for (iMarker_Inlet = 0; iMarker_Inlet < nMarker_Inlet_Species; iMarker_Inlet++) {
+      BoundaryTable << Marker_Inlet[iMarker_Inlet];
+      if (iMarker_Inlet < nMarker_Inlet_Species-1)  BoundaryTable << " ";
     }
     BoundaryTable.PrintFooter();
   }
@@ -7710,6 +7803,8 @@ CConfig::~CConfig(void) {
      delete[]  Surface_TotalTemperature;
      delete[]  Surface_TotalPressure;
      delete[]  Surface_PressureDrop;
+     delete[]  Surface_Species_0;
+     delete[]  Surface_Species_Variance;
      delete[]  Surface_DC60;
      delete[]  Surface_IDC;
      delete[]  Surface_IDC_Mach;
@@ -7779,6 +7874,13 @@ CConfig::~CConfig(void) {
      delete[] FlowLoad_Value;
      delete[] Roughness_Height;
      delete[] Wall_Emissivity;
+
+  if (Inlet_SpeciesVal != nullptr) {
+    for (auto i = 0u; i < nMarker_Inlet_Species; ++i)
+      delete[] Inlet_SpeciesVal[i];
+  }
+  delete[] Inlet_SpeciesVal;
+
   /*--- related to periodic boundary conditions ---*/
 
   for (iMarker = 0; iMarker < nMarker_PerBound; iMarker++) {
@@ -7835,6 +7937,7 @@ CConfig::~CConfig(void) {
              delete[] Marker_Internal;
                 delete[] Marker_HeatFlux;
           delete[] Marker_Emissivity;
+  delete[] Marker_Inlet_Species;
 
   delete [] Int_Coeffs;
 
@@ -7884,6 +7987,10 @@ CConfig::~CConfig(void) {
   delete [] VolumeOutputFiles;
 
   delete [] ConvField;
+
+  delete [] Species_Clipping_Min;
+  delete [] Species_Clipping_Max;
+  delete [] Species_Init;
 
 }
 
@@ -8044,9 +8151,10 @@ string CConfig::GetObjFunc_Extension(string val_filename) const {
         case SURFACE_MOM_DISTORTION:      AdjExt = "_distort";  break;
         case SURFACE_SECOND_OVER_UNIFORM: AdjExt = "_sou";      break;
         case SURFACE_PRESSURE_DROP:       AdjExt = "_dp";       break;
+        case SURFACE_SPECIES_0:           AdjExt = "_avgspec0"; break;
+        case SURFACE_SPECIES_VARIANCE:    AdjExt = "_specvar";  break;
         case SURFACE_MACH:                AdjExt = "_mach";     break;
         case CUSTOM_OBJFUNC:              AdjExt = "_custom";   break;
-        case AVG_NORMAL_VEL:              AdjExt = "_vn";       break;
         case KINETIC_ENERGY_LOSS:         AdjExt = "_ke";       break;
         case TOTAL_PRESSURE_LOSS:         AdjExt = "_pl";       break;
         case FLOW_ANGLE_OUT:              AdjExt = "_fao";      break;
