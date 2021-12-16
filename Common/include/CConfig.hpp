@@ -480,8 +480,8 @@ private:
   CONDUCTIVITYMODEL_TURB Kind_ConductivityModel_Turb; /*!< \brief Kind of the Turbulent Thermal Conductivity Model */
   DIFFUSIVITYMODEL Kind_Diffusivity_Model; /*!< \brief Kind of the mass diffusivity Model */
   FREESTREAM_OPTION Kind_FreeStreamOption; /*!< \brief Kind of free stream option to choose if initializing with density or temperature  */
-  unsigned short Kind_Solver,      /*!< \brief Kind of solver Euler, NS, Continuous adjoint, etc.  */
-  Kind_FluidModel,                 /*!< \brief Kind of the Fluid Model: Ideal or Van der Walls, ... . */
+  MAIN_SOLVER Kind_Solver;         /*!< \brief Kind of solver: Euler, NS, Continuous adjoint, etc.  */
+  unsigned short Kind_FluidModel,  /*!< \brief Kind of the Fluid Model: Ideal, van der Waals, etc. */
   Kind_InitOption,                 /*!< \brief Kind of Init option to choose if initializing with Reynolds number or with thermodynamic conditions   */
   Kind_GridMovement,               /*!< \brief Kind of the static mesh movement. */
   *Kind_SurfaceMovement,           /*!< \brief Kind of the static mesh movement. */
@@ -541,7 +541,6 @@ private:
   Kind_Upwind_Template,         /*!< \brief Upwind scheme for the template model. */
   Kind_FEM,                     /*!< \brief Finite element scheme for the flow equations. */
   Kind_FEM_Flow,                /*!< \brief Finite element scheme for the flow equations. */
-  Kind_FEM_DG_Shock,            /*!< \brief Shock capturing method for the FEM DG solver. */
   Kind_Matrix_Coloring;         /*!< \brief Type of matrix coloring for sparse Jacobian computation. */
   FEM_SHOCK_CAPTURING_DG Kind_FEM_Shock_Capturing_DG; /*!< \brief Shock capturing method for the FEM DG solver. */
   BGS_RELAXATION Kind_BGS_RelaxMethod; /*!< \brief Kind of relaxation method for Block Gauss Seidel method in FSI problems. */
@@ -1099,7 +1098,7 @@ private:
   bool Jacobian_Spatial_Discretization_Only; /*!< \brief Flag to know if only the exact Jacobian of the spatial discretization must be computed. */
   bool Compute_Average;                      /*!< \brief Whether or not to compute averages for unsteady simulations in FV or DG solver. */
   unsigned short Comm_Level;                 /*!< \brief Level of MPI communications to be performed. */
-  unsigned short Kind_Verification_Solution; /*!< \brief Verification solution for accuracy assessment. */
+  VERIFICATION_SOLUTION Kind_Verification_Solution; /*!< \brief Verification solution for accuracy assessment. */
 
   bool Time_Domain;              /*!< \brief Determines if the multizone problem is solved in time-domain */
   unsigned long nOuterIter,      /*!< \brief Determines the number of outer iterations in the multizone problem */
@@ -3602,26 +3601,19 @@ public:
    * \param[in] val_zone - Zone where the soler is applied.
    * \return Governing equation that we are solving.
    */
-  unsigned short GetKind_Solver(void) const { return Kind_Solver; }
-
-  /*!
-   * \brief Governing equations of the flow (it can be different from the run time equation).
-   * \param[in] val_zone - Zone where the soler is applied.
-   * \return Governing equation that we are solving.
-   */
-  void SetKind_Solver(unsigned short val_solver) { Kind_Solver = val_solver; }
+  MAIN_SOLVER GetKind_Solver(void) const { return Kind_Solver; }
 
   /*!
    * \brief Return true if a fluid solver is in use.
    */
   bool GetFluidProblem(void) const {
     switch (Kind_Solver) {
-      case EULER : case NAVIER_STOKES: case RANS:
-      case INC_EULER : case INC_NAVIER_STOKES: case INC_RANS:
-      case NEMO_EULER : case NEMO_NAVIER_STOKES:
-      case DISC_ADJ_INC_EULER: case DISC_ADJ_INC_NAVIER_STOKES: case DISC_ADJ_INC_RANS:
-      case DISC_ADJ_EULER: case DISC_ADJ_NAVIER_STOKES: case DISC_ADJ_RANS:
-      case DISC_ADJ_NEMO_EULER: case DISC_ADJ_NEMO_NAVIER_STOKES:
+      case MAIN_SOLVER::EULER : case MAIN_SOLVER::NAVIER_STOKES: case MAIN_SOLVER::RANS:
+      case MAIN_SOLVER::INC_EULER : case MAIN_SOLVER::INC_NAVIER_STOKES: case MAIN_SOLVER::INC_RANS:
+      case MAIN_SOLVER::NEMO_EULER : case MAIN_SOLVER::NEMO_NAVIER_STOKES:
+      case MAIN_SOLVER::DISC_ADJ_INC_EULER: case MAIN_SOLVER::DISC_ADJ_INC_NAVIER_STOKES: case MAIN_SOLVER::DISC_ADJ_INC_RANS:
+      case MAIN_SOLVER::DISC_ADJ_EULER: case MAIN_SOLVER::DISC_ADJ_NAVIER_STOKES: case MAIN_SOLVER::DISC_ADJ_RANS:
+      case MAIN_SOLVER::DISC_ADJ_NEMO_EULER: case MAIN_SOLVER::DISC_ADJ_NEMO_NAVIER_STOKES:
         return true;
       default:
         return false;
@@ -3632,14 +3624,14 @@ public:
    * \brief Return true if a structural solver is in use.
    */
   bool GetStructuralProblem(void) const {
-    return (Kind_Solver == FEM_ELASTICITY) || (Kind_Solver == DISC_ADJ_FEM);
+    return (Kind_Solver == MAIN_SOLVER::FEM_ELASTICITY) || (Kind_Solver == MAIN_SOLVER::DISC_ADJ_FEM);
   }
 
   /*!
    * \brief Return true if a heat solver is in use.
    */
   bool GetHeatProblem(void) const {
-    return (Kind_Solver == HEAT_EQUATION) || (Kind_Solver == DISC_ADJ_HEAT);
+    return (Kind_Solver == MAIN_SOLVER::HEAT_EQUATION) || (Kind_Solver == MAIN_SOLVER::DISC_ADJ_HEAT);
   }
 
   /*!
@@ -3647,8 +3639,8 @@ public:
    */
   bool GetFEMSolver(void) const {
     switch (Kind_Solver) {
-      case FEM_EULER: case FEM_NAVIER_STOKES: case FEM_RANS: case FEM_LES:
-      case DISC_ADJ_FEM_EULER: case DISC_ADJ_FEM_NS: case DISC_ADJ_FEM_RANS:
+      case MAIN_SOLVER::FEM_EULER: case MAIN_SOLVER::FEM_NAVIER_STOKES: case MAIN_SOLVER::FEM_RANS: case MAIN_SOLVER::FEM_LES:
+      case MAIN_SOLVER::DISC_ADJ_FEM_EULER: case MAIN_SOLVER::DISC_ADJ_FEM_NS: case MAIN_SOLVER::DISC_ADJ_FEM_RANS:
         return true;
       default:
         return false;
@@ -3660,7 +3652,7 @@ public:
    */
   bool GetNEMOProblem(void) const {
     switch (Kind_Solver) {
-      case NEMO_EULER : case NEMO_NAVIER_STOKES:
+      case MAIN_SOLVER::NEMO_EULER : case MAIN_SOLVER::NEMO_NAVIER_STOKES:
         return true;
       default:
         return false;
@@ -5227,7 +5219,7 @@ public:
    * \brief Provides the number of species present in the plasma
    * \return: The number of species present in the plasma, read from input file
    */
-  unsigned short GetnSpecies(void) const { return nSpecies; }
+  unsigned short GetnSpecies() const { return nSpecies; }
 
    /*!
    * \brief Get the wall heat flux on a constant heat flux boundary.
@@ -6351,7 +6343,7 @@ public:
    * \param[in] val_solver - Solver of the simulation.
    * \param[in] val_system - Runtime system that we are solving.
    */
-  void SetGlobalParam(unsigned short val_solver, unsigned short val_system);
+  void SetGlobalParam(MAIN_SOLVER val_solver, unsigned short val_system);
 
   /*!
    * \brief Center of rotation for a rotational periodic boundary.
@@ -9080,7 +9072,7 @@ public:
    * \brief Get the verification solution.
    * \return The verification solution to be used.
    */
-  unsigned short GetVerification_Solution(void) const { return Kind_Verification_Solution;}
+  VERIFICATION_SOLUTION GetVerification_Solution(void) const { return Kind_Verification_Solution;}
 
   /*!
    * \brief Get topology optimization.

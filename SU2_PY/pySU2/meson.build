@@ -28,10 +28,7 @@ if get_option('enable-normal')
       '_pysu2',
       cpp_source,
       dependencies: [wrapper_deps, common_dep, su2_deps],
-      objects: [
-        su2_cfd_lib.extract_all_objects(),
-        su2_def_lib.extract_objects('drivers/CDeformationDriver.cpp')
-      ],
+      objects: su2_cfd_lib.extract_all_objects(),
       install: true,
       include_directories : mpi4py_include,
       cpp_args : [default_warning_flags,su2_cpp_args],
@@ -47,10 +44,7 @@ if get_option('enable-autodiff')
       '_pysu2ad',
       cpp_source,
       dependencies: [wrapper_deps, commonAD_dep, su2_deps, codi_dep],
-      objects: [
-        su2_cfd_lib_ad.extract_all_objects(),
-        su2_def_lib_ad.extract_objects('drivers/CDiscAdjDeformationDriver.cpp')
-      ],
+      objects: su2_cfd_lib_ad.extract_all_objects(),
       install: true,
       include_directories : mpi4py_include,
       cpp_args : [default_warning_flags, su2_cpp_args, codi_rev_args],
