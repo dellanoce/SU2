@@ -363,6 +363,7 @@ private:
   su2double *Surface_SecondaryStrength;      /*!< \brief Integral measure of the strength of secondary flows (absolute) at the boundaries (non-dim). */
   su2double *Surface_SecondOverUniform;      /*!< \brief Integral measure of the strength of secondary flows (relative to streamwise) at the boundaries (non-dim). */
   su2double *Surface_MomentumDistortion;     /*!< \brief Integral measure of the streamwise uniformity (relative to plug flow) at the boundaries (non-dim). */
+  su2double *Surface_DC60Distortion;         /*!< \brief Integral measure of the DC60 distortion at the boundaries. */
   su2double *Surface_TotalTemperature;       /*!< \brief Total temperature at the boundaries. */
   su2double *Surface_TotalPressure;          /*!< \brief Total pressure at the boundaries. */
   su2double *Surface_PressureDrop;           /*!< \brief Pressure drop between boundaries. */
@@ -7765,6 +7766,13 @@ public:
    * \return The momentum distortion.
    */
   su2double GetSurface_MomentumDistortion(unsigned short val_marker) const { return Surface_MomentumDistortion[val_marker]; }
+
+  /*!
+   * \brief Get the DC60 distortion at the surface.
+   * \param[in] val_marker - Index corresponding to the outlet boundary.
+   * \return The DC60 distortion.
+   */
+  su2double GetSurface_DC60Distortion(unsigned short val_marker) const { return Surface_DC60Distortion[val_marker]; }
 
   /*!
    * \brief Get the total temperature at an outlet boundary.
