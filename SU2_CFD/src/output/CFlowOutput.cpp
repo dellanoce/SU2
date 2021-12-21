@@ -62,7 +62,7 @@ void CFlowOutput::AddAnalyzeSurfaceOutput(CConfig *config){
   /// DESCRIPTION: Secondary over uniformity
   AddHistoryOutput("SECONDARY_OVER_UNIFORMITY", "Secondary_Over_Uniformity", ScreenOutputFormat::SCIENTIFIC, "FLOW_COEFF", "Total secondary over uniformity on all markers set in MARKER_ANALYZE", HistoryFieldType::COEFFICIENT);
   /// DESCRIPTION: DC60 Distortion Metric
-  AddHistoryOutput("DC60_DISTORTION",           "DC60_Distortion",          ScreenOutputFormat::SCIENTIFIC, "FLOW_COEFF", "Total DC60 distortion on all markers set in MARKER_ANALYZE", HistoryFieldType::COEFFICIENT)
+  AddHistoryOutput("DC60_DISTORTION",           "DC60_Distortion",          ScreenOutputFormat::SCIENTIFIC, "FLOW_COEFF", "Total DC60 distortion on all markers set in MARKER_ANALYZE", HistoryFieldType::COEFFICIENT);
   /// DESCRIPTION: Average total temperature
   AddHistoryOutput("AVG_TOTALTEMP",            "Avg_TotalTemp",             ScreenOutputFormat::SCIENTIFIC, "FLOW_COEFF", "Total average total temperature all markers set in MARKER_ANALYZE", HistoryFieldType::COEFFICIENT);
   /// DESCRIPTION: Average total pressure
@@ -562,12 +562,13 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
   for (iMarker_Analyze = 0; iMarker_Analyze < nMarker_Analyze; iMarker_Analyze++) {
 
     // Initialize
-    su2double *r, su2double PT_Mean, Mach_Mean, q_Mean, PT, q, *PT_Sector, PT_Sector_Min,
+    su2double *r, PT, q, *PT_Sector, PT_Sector_Min,
      DC60, *PT_Station, *PT_Station_Min, *Mach_Station,
       *Mach_Station_Min, IDR, IDC, IDC_Mach;
+    su2double ***ProbeArray;
 
     su2double TotalArea = 0.0, xCoord_CG = 0.0, yCoord_CG = 0.0, zCoord_CG = 0.0, PT_Mean = 0.0, Mach_Mean = 0.0,  q_Mean = 0.0;
-    su2double xCoord = 0.0; yCoord = 0.0; zCoord = 0.0;
+    su2double xCoord = 0.0, yCoord = 0.0, zCoord = 0.0;
     for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker_Analyze); iVertex++) {
 
       iPoint = geometry->vertex[iMarker_Analyze][iVertex]->GetNode();
@@ -583,7 +584,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
       for (iDim = 0; iDim < nDim; iDim++) { Area += (Vector[iDim])* (Vector[iDim]);}
       Area       = sqrt(Area);
       q          = 0.5*solver->GetNodes()->GetDensity(iPoint)*
-                       solver->GetNodes()->GetVelocity2(iPoint)
+                       solver->GetNodes()->GetVelocity2(iPoint);
       TotalArea += Area;
       xCoord_CG += xCoord*Area;
       yCoord_CG += yCoord*Area;
@@ -608,6 +609,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
       yCoord = geometry->node[iPoint]->GetCoord(1);
       if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
 
+      su2double Distance = 0.0;
       if (nDim == 2)
         Distance = sqrt((xCoord_CG-xCoord)*(xCoord_CG-xCoord) +
                         (yCoord_CG-yCoord)*(yCoord_CG-yCoord));
@@ -645,12 +647,14 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     }
 
     /*--- Define the probe rack ---*/
+    su2double UpVector[3];
+    su2double RotatedVector[3];
 
     UpVector[0] = 0.0; UpVector[1] = 0.0; UpVector[2] = 1.0;
 
     for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
 
-      radians = -iAngle*Theta*2.0*PI_NUMBER/360;
+      su2double radians = -iAngle*Theta*2.0*PI_NUMBER/360;
       RotatedVector[0] =  UpVector[0];
       RotatedVector[1] =  UpVector[1] * cos(radians) - UpVector[2] * sin(radians);
       RotatedVector[2] =  UpVector[1] * sin(radians) + UpVector[2] * cos(radians);
@@ -665,9 +669,9 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
     /*--- Compute the Total pressure at each probe, closes grid point to the location ---*/
 
-    for (iAngle = 0; iAngle < nAngle; iAngle++) {
+    for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
 
-      for (iStation = 0; iStation < nStation; iStation++) {
+      for (auto iStation = 0; iStation < nStation; iStation++) {
         su2double xCoord_ = ProbeArray[iAngle][iStation][0];
         su2double yCoord_ = ProbeArray[iAngle][iStation][1];
         su2double zCoord_ = ProbeArray[iAngle][iStation][2];
@@ -682,16 +686,20 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
           su2double dx = (xCoord_ - xCoord);
           su2double dy = (yCoord_ - yCoord);
-          if (nDim == 3) su2double dz = (zCoord_ - zCoord);
-
+	  su2double dz = 0.0;
+          if (nDim == 3) dz = (zCoord_ - zCoord);
+          su2double Distance;
           Distance = dx*dx + dy*dy; if (nDim == 3) Distance += dz*dz; Distance = sqrt(Distance);
-        }
-
-        if (Distance <= MinDistance) {
-          MinDistance = Distance;
-          ProbeArray[iAngle][iStation][3] = Buffer_Recv_PT[Total_Index];
-          ProbeArray[iAngle][iStation][4] = Buffer_Recv_q[Total_Index];
-        }
+          su2double qv = 0.5*solver->GetNodes()->GetDensity(iPoint)*
+                             solver->GetNodes()->GetVelocity2(iPoint);
+          Mach = sqrt(solver->GetNodes()->GetVelocity2(iPoint))/solver->GetNodes()->GetSoundSpeed(iPoint);
+	  su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
+	  if (Distance <= MinDistance) {
+            MinDistance = Distance;
+            ProbeArray[iAngle][iStation][3] = PTv;
+            ProbeArray[iAngle][iStation][4] = qv;
+          }
+	}
       }
     }
 
@@ -699,7 +707,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     PT_Mean = 0.0; q_Mean = 0.0;
     for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
       PT_Sector[iAngle] = 0.0;
-      for (iStation = 0; iStation < nStation; iStation++) {
+      for (auto iStation = 0; iStation < nStation; iStation++) {
         PT_Sector[iAngle] += ProbeArray[iAngle][iStation][3]/float(nStation);
         PT_Mean           += ProbeArray[iAngle][iStation][3]/float(nStation*nAngle);
         q_Mean            += ProbeArray[iAngle][iStation][4]/float(nStation*nAngle);
@@ -708,14 +716,14 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
     /*--- Compute the min value of the averaged pressure at each sector ---*/
     PT_Sector_Min = PT_Sector[0];
-    for (iAngle = 1; iAngle < nAngle; iAngle++) {
+    for (auto iAngle = 1; iAngle < nAngle; iAngle++) {
       if (PT_Sector[iAngle] <= PT_Sector_Min) PT_Sector_Min = PT_Sector[iAngle];
     }
 
     /*--- Set the value of the distortion, it only works for one surface ---*/
-    Mach_Inf           = config->GetMach();
-    Gamma              = config->GetGamma();
-    TotalPressure_Inf  = config->GetPressure_FreeStreamND() * pow( 1.0 + Mach_Inf * Mach_Inf *
+    su2double Mach_Inf           = config->GetMach();
+    su2double Gamma              = config->GetGamma();
+    su2double TotalPressure_Inf  = config->GetPressure_FreeStreamND() * pow( 1.0 + Mach_Inf * Mach_Inf *
                                                                     0.5 * (Gamma - 1.0), Gamma    / (Gamma - 1.0));
     if (q_Mean != 0.0) DC60 = ((PT_Mean - PT_Sector_Min)*TotalPressure_Inf)/q_Mean;
     else DC60 = 0.0;
