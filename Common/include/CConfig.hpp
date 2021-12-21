@@ -7492,6 +7492,14 @@ public:
    */
   void SetSurface_MomentumDistortion(unsigned short val_marker, su2double val_surface_momentumdistortion) { Surface_MomentumDistortion[val_marker] = val_surface_momentumdistortion; }
 
+
+  /*!
+   * \brief Set the DC60 distortion at the surface.
+   * \param[in] val_marker - Index corresponding to the outlet boundary.
+   * \param[in] val_surface_DC60distortion - Value of the DC60 distortion.
+   */
+  void SetSurface_DC60Distortion(unsigned short val_marker, su2double val_surface_DC60distortion) { Surface_DC60Distortion[val_marker] = val_surface_DC60distortion; }
+
   /*!
    * \brief Set the total temperature at the surface.
    * \param[in] val_marker - Index corresponding to the outlet boundary.
