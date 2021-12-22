@@ -497,7 +497,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     su2double ***ProbeArray;
 
 
-    su2double TotalArea = 0.0, xCoord_CG = 0.0, yCoord_CG = 0.0, zCoord_CG = 0.0, PT_Mean = 0.0, Mach_Mean = 0.0,  q_Mean = 0.0;
+    su2double TotalArea = 0.0, xCoord_CG = 0.0, yCoord_CG = 0.0, zCoord_CG = 0.0;
     su2double xCoord = 0.0, yCoord = 0.0, zCoord = 0.0;
     for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker_Analyze); iVertex++) {
 
@@ -508,21 +508,16 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
       for (iDim = 0; iDim < nDim; iDim++) { Area += (Vector[iDim])* (Vector[iDim]);}
       Area       = sqrt(Area);
-      q          = 0.5*solver->GetNodes()->GetDensity(iPoint)*
-                       solver->GetNodes()->GetVelocity2(iPoint);
+      
       TotalArea += Area;
       xCoord_CG += xCoord*Area;
       yCoord_CG += yCoord*Area;
       zCoord_CG += zCoord*Area;
-      q_Mean    += q*Area;
     }
   
     xCoord_CG = xCoord_CG / TotalArea;
     yCoord_CG = yCoord_CG / TotalArea;
     zCoord_CG = zCoord_CG / TotalArea;
-    PT_Mean   = Surface_Pressure_Total[iMarker_Analyze];
-    Mach_Mean = Surface_Mach_Total[iMarker_Analyze];
-    q_Mean    /=  TotalArea;
 
     /*--- Compute AIP radius ---*/
     su2double Radius = 1E-6;
@@ -589,13 +584,11 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
         ProbeArray[iAngle][iStation-1][1] = yCoord_CG+RotatedVector[1]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
         ProbeArray[iAngle][iStation-1][2] = zCoord_CG+RotatedVector[2]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
       }
-
     }
 
     /*--- Compute the Total pressure at each probe, closes grid point to the location ---*/
 
     for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
-
       for (auto iStation = 0; iStation < nStation; iStation++) {
         su2double xCoord_ = ProbeArray[iAngle][iStation][0];
         su2double yCoord_ = ProbeArray[iAngle][iStation][1];
@@ -611,14 +604,14 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
           su2double dx = (xCoord_ - xCoord);
           su2double dy = (yCoord_ - yCoord);
-	        su2double dz = 0.0; if (nDim == 3) dz = (zCoord_ - zCoord);
+          su2double dz = 0.0; if (nDim == 3) dz = (zCoord_ - zCoord);
           su2double Distance;
           Distance = dx*dx + dy*dy + dz*dz; Distance = sqrt(Distance);
 
           su2double qv = 0.5*solver->GetNodes()->GetDensity(iPoint)*
                              solver->GetNodes()->GetVelocity2(iPoint);
           Mach = sqrt(solver->GetNodes()->GetVelocity2(iPoint))/solver->GetNodes()->GetSoundSpeed(iPoint);
-	        su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
+          su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
           if (Distance <= MinDistance) {
             MinDistance = Distance;
             ProbeArray[iAngle][iStation][3] = PTv;
@@ -629,7 +622,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     }
 
     /*--- Evaluate the average pressure at each sector, fan face and dynamic pressure ---*/
-    PT_Mean = 0.0; q_Mean = 0.0;
+    su2double PT_Mean = 0.0, q_Mean = 0.0;
     for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
       PT_Sector[iAngle] = 0.0;
       for (auto iStation = 0; iStation < nStation; iStation++) {
@@ -650,7 +643,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     su2double Gamma              = config->GetGamma();
     su2double TotalPressure_Inf  = config->GetPressure_FreeStreamND() * pow( 1.0 + Mach_Inf * Mach_Inf *
                                                                     0.5 * (Gamma - 1.0), Gamma    / (Gamma - 1.0));
-    if (q_Mean != 0.0) DC60 = ((PT_Mean - PT_Sector_Min)*TotalPressure_Inf)/q_Mean;
+    if (q_Mean != 0.0) DC60 = ((PT_Mean - PT_Sector_Min))/q_Mean;
     else DC60 = 0.0;
 
     Surface_DC60Distortion_Total[iMarker_Analyze] = DC60;
