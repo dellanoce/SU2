@@ -488,179 +488,178 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
   }
 
   /*--- Compute DC60 Metric.   Future work should include MPI version and standalone function value ---*/
-  for (iMarker_Analyze = 0; iMarker_Analyze < nMarker_Analyze; iMarker_Analyze++) {
-    
-    // Initialize
-    su2double *r, PT, q, *PT_Sector, PT_Sector_Min,
-     DC60, *PT_Station, *PT_Station_Min, *Mach_Station,
-      *Mach_Station_Min, IDR, IDC, IDC_Mach;
-    su2double ***ProbeArray;
+  for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
+    if (config->GetMarker_All_Analyze(iMarker) == YES)  {
 
+      // Initialize
+      su2double *r, PT, q, *PT_Sector, PT_Sector_Min,
+       DC60, *PT_Station, *PT_Station_Min, *Mach_Station,
+        *Mach_Station_Min, IDR, IDC, IDC_Mach;
+      su2double ***ProbeArray;
 
-    su2double TotalArea = 0.0, xCoord_CG = 0.0, yCoord_CG = 0.0, zCoord_CG = 0.0;
-    su2double xCoord = 0.0, yCoord = 0.0, zCoord = 0.0;
-    for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker_Analyze); iVertex++) {
+      su2double TotalArea = 0.0, xCoord_CG = 0.0, yCoord_CG = 0.0, zCoord_CG = 0.0;
+      su2double xCoord = 0.0, yCoord = 0.0, zCoord = 0.0;
+      for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker); iVertex++) {
 
-      iPoint = geometry->vertex[iMarker_Analyze][iVertex]->GetNode();
-      xCoord = geometry->node[iPoint]->GetCoord(0);
-      yCoord = geometry->node[iPoint]->GetCoord(1);
-      if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
+        iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
+        xCoord = geometry->node[iPoint]->GetCoord(0);
+        yCoord = geometry->node[iPoint]->GetCoord(1);
+        if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
 
-      for (iDim = 0; iDim < nDim; iDim++) { Area += (Vector[iDim])* (Vector[iDim]);}
-      Area       = sqrt(Area);
+        for (iDim = 0; iDim < nDim; iDim++) { Area += (Vector[iDim])* (Vector[iDim]);}
+        Area       = sqrt(Area);
       
-      TotalArea += Area;
-      xCoord_CG += xCoord*Area;
-      yCoord_CG += yCoord*Area;
-      zCoord_CG += zCoord*Area;
-    }
+        TotalArea += Area;
+        xCoord_CG += xCoord*Area;
+        yCoord_CG += yCoord*Area;
+        zCoord_CG += zCoord*Area;
+      }
   
-    xCoord_CG = xCoord_CG / TotalArea;
-    yCoord_CG = yCoord_CG / TotalArea;
-    zCoord_CG = zCoord_CG / TotalArea;
+      xCoord_CG = xCoord_CG / TotalArea;
+      yCoord_CG = yCoord_CG / TotalArea;
+      zCoord_CG = zCoord_CG / TotalArea;
 
-    /*--- Compute AIP radius ---*/
-    su2double Radius = 1E-6;
-    for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker_Analyze); iVertex++) {
+      /*--- Compute AIP radius ---*/
+      su2double Radius = 1E-6;
+      for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker); iVertex++) {
 
-      /*--- Current index position and global index ---*/
-      iPoint = geometry->vertex[iMarker_Analyze][iVertex]->GetNode();
-      xCoord = geometry->node[iPoint]->GetCoord(0);
-      yCoord = geometry->node[iPoint]->GetCoord(1);
-      if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
+        /*--- Current index position and global index ---*/
+        iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
+        xCoord = geometry->node[iPoint]->GetCoord(0);
+        yCoord = geometry->node[iPoint]->GetCoord(1);
+        if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
 
-      su2double Distance = 0.0;
-      if (nDim == 2)
-        Distance = sqrt((xCoord_CG-xCoord)*(xCoord_CG-xCoord) +
-                        (yCoord_CG-yCoord)*(yCoord_CG-yCoord));
+        su2double Distance = 0.0;
+        if (nDim == 2)
+          Distance = sqrt((xCoord_CG-xCoord)*(xCoord_CG-xCoord) +
+                          (yCoord_CG-yCoord)*(yCoord_CG-yCoord));
 
-      if (nDim == 3)
-        Distance = sqrt((xCoord_CG-xCoord)*(xCoord_CG-xCoord) +
-                        (yCoord_CG-yCoord)*(yCoord_CG-yCoord) +
-                        (zCoord_CG-zCoord)*(zCoord_CG-zCoord));
+        if (nDim == 3)
+          Distance = sqrt((xCoord_CG-xCoord)*(xCoord_CG-xCoord) +
+                          (yCoord_CG-yCoord)*(yCoord_CG-yCoord) +
+                          (zCoord_CG-zCoord)*(zCoord_CG-zCoord));
 
-      if (Distance > Radius) Radius = Distance;
-    }
-
-    /*---                    ---*/
-    /*---Compute DC60 Metric ---*/
-    /*---                    ---*/
-    unsigned short Theta = 60, nStation = 5;
-    unsigned short nAngle = SU2_TYPE::Int(360/float(Theta));
-
-    /*--- Initialize "probes" ---*/
-    r = new su2double [nStation+1];
-
-    PT_Sector = new su2double [nAngle];
-    ProbeArray = new su2double ** [nAngle];
-    for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
-      ProbeArray[iAngle] = new su2double * [nStation];
-      for (auto iStation = 0; iStation < nStation; iStation++) {
-        ProbeArray[iAngle][iStation] = new su2double [5];
+        if (Distance > Radius) Radius = Distance;
       }
-    }
 
-    /*--- Define the radius for each probe ---*/
-    r[0] = 0; r[nStation] = Radius;
-    for (auto iStation = 1; iStation < nStation; iStation++) {
-      r[iStation] = sqrt(  r[iStation-1]*r[iStation-1] + (r[nStation]*r[nStation] - r[0]*r[0])/float(nStation) );
-    }
+      /*---                    ---*/
+      /*---Compute DC60 Metric ---*/
+      /*---                    ---*/
+      unsigned short Theta = 60, nStation = 5;
+      unsigned short nAngle = SU2_TYPE::Int(360/float(Theta));
 
-    /*--- Define the probe rack ---*/
-    su2double UpVector[3];
-    su2double RotatedVector[3];
+      /*--- Initialize "probes" ---*/
+      r = new su2double [nStation+1];
 
-    UpVector[0] = 0.0; UpVector[1] = 0.0; UpVector[2] = 1.0;
-
-    for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
-
-      su2double radians = -iAngle*Theta*2.0*PI_NUMBER/360;
-      RotatedVector[0] =  UpVector[0];
-      RotatedVector[1] =  UpVector[1] * cos(radians) - UpVector[2] * sin(radians);
-      RotatedVector[2] =  UpVector[1] * sin(radians) + UpVector[2] * cos(radians);
-
-      for (auto iStation = 1; iStation <= nStation; iStation++) {
-        ProbeArray[iAngle][iStation-1][0] = xCoord_CG+RotatedVector[0]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
-        ProbeArray[iAngle][iStation-1][1] = yCoord_CG+RotatedVector[1]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
-        ProbeArray[iAngle][iStation-1][2] = zCoord_CG+RotatedVector[2]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
+      PT_Sector = new su2double [nAngle];
+      ProbeArray = new su2double ** [nAngle];
+      for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
+        ProbeArray[iAngle] = new su2double * [nStation];
+        for (auto iStation = 0; iStation < nStation; iStation++) {
+          ProbeArray[iAngle][iStation] = new su2double [5];
+        }
       }
-    }
 
-    /*--- Compute the Total pressure at each probe, closes grid point to the location ---*/
+      /*--- Define the radius for each probe ---*/
+      r[0] = 0; r[nStation] = Radius;
+      for (auto iStation = 1; iStation < nStation; iStation++) {
+        r[iStation] = sqrt(  r[iStation-1]*r[iStation-1] + (r[nStation]*r[nStation] - r[0]*r[0])/float(nStation) );
+      }
 
-    for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
-      for (auto iStation = 0; iStation < nStation; iStation++) {
-        su2double xCoord_ = ProbeArray[iAngle][iStation][0];
-        su2double yCoord_ = ProbeArray[iAngle][iStation][1];
-        su2double zCoord_ = ProbeArray[iAngle][iStation][2];
+      /*--- Define the probe rack ---*/
+      su2double UpVector[3];
+      su2double RotatedVector[3];
 
-        su2double MinDistance = 1E6;
+      UpVector[0] = 0.0; UpVector[1] = 0.0; UpVector[2] = 1.0;
 
-        for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker_Analyze); iVertex++) {
-          iPoint = geometry->vertex[iMarker_Analyze][iVertex]->GetNode();
-          xCoord = geometry->node[iPoint]->GetCoord(0);
-          yCoord = geometry->node[iPoint]->GetCoord(1);
-          if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
+      for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
 
-cout <<xCoord<<endl;
-          su2double dx = (xCoord_ - xCoord);
-          su2double dy = (yCoord_ - yCoord);
-          su2double dz = 0.0; if (nDim == 3) dz = (zCoord_ - zCoord);
-          su2double Distance;
-          Distance = dx*dx + dy*dy + dz*dz; Distance = sqrt(Distance);
+        su2double radians = -iAngle*Theta*2.0*PI_NUMBER/360;
+        RotatedVector[0] =  UpVector[0];
+        RotatedVector[1] =  UpVector[1] * cos(radians) - UpVector[2] * sin(radians);
+        RotatedVector[2] =  UpVector[1] * sin(radians) + UpVector[2] * cos(radians);
 
-          su2double qv = 0.5*solver->GetNodes()->GetDensity(iPoint)*
-                             solver->GetNodes()->GetVelocity2(iPoint);
-          Mach = sqrt(solver->GetNodes()->GetVelocity2(iPoint))/solver->GetNodes()->GetSoundSpeed(iPoint);
-          su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
-          if (Distance <= MinDistance) {
-            MinDistance = Distance;
-            ProbeArray[iAngle][iStation][3] = PTv;
-            ProbeArray[iAngle][iStation][4] = qv;
+        for (auto iStation = 1; iStation <= nStation; iStation++) {
+          ProbeArray[iAngle][iStation-1][0] = xCoord_CG+RotatedVector[0]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
+          ProbeArray[iAngle][iStation-1][1] = yCoord_CG+RotatedVector[1]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
+          ProbeArray[iAngle][iStation-1][2] = zCoord_CG+RotatedVector[2]*sqrt(0.5*(r[iStation]*r[iStation]+r[iStation-1]*r[iStation-1]));
+        }
+      }
+
+      /*--- Compute the Total pressure at each probe, closes grid point to the location ---*/
+
+      for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
+        for (auto iStation = 0; iStation < nStation; iStation++) {
+          su2double xCoord_ = ProbeArray[iAngle][iStation][0];
+          su2double yCoord_ = ProbeArray[iAngle][iStation][1];
+          su2double zCoord_ = ProbeArray[iAngle][iStation][2];
+
+          su2double MinDistance = 1E6;
+
+          for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker); iVertex++) {
+            iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
+            xCoord = geometry->node[iPoint]->GetCoord(0);
+            yCoord = geometry->node[iPoint]->GetCoord(1);
+            if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
+
+            su2double dx = (xCoord_ - xCoord);
+            su2double dy = (yCoord_ - yCoord);
+            su2double dz = 0.0; if (nDim == 3) dz = (zCoord_ - zCoord);
+            su2double Distance;
+            Distance = dx*dx + dy*dy + dz*dz; Distance = sqrt(Distance);
+
+            su2double qv = 0.5*solver->GetNodes()->GetDensity(iPoint)*
+                               solver->GetNodes()->GetVelocity2(iPoint);
+            Mach = sqrt(solver->GetNodes()->GetVelocity2(iPoint))/solver->GetNodes()->GetSoundSpeed(iPoint);
+            su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
+            if (Distance <= MinDistance) {
+              MinDistance = Distance;
+              ProbeArray[iAngle][iStation][3] = PTv;
+              ProbeArray[iAngle][iStation][4] = qv;
+            }
           }
-	}
+        }
       }
-    }
 
-    /*--- Evaluate the average pressure at each sector, fan face and dynamic pressure ---*/
-    su2double PT_Mean = 0.0, q_Mean = 0.0;
-    for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
-      PT_Sector[iAngle] = 0.0;
-      for (auto iStation = 0; iStation < nStation; iStation++) {
-        PT_Sector[iAngle] += ProbeArray[iAngle][iStation][3]/float(nStation);
-        PT_Mean           += ProbeArray[iAngle][iStation][3]/float(nStation*nAngle);
-        q_Mean            += ProbeArray[iAngle][iStation][4]/float(nStation*nAngle);
+      /*--- Evaluate the average pressure at each sector, fan face and dynamic pressure ---*/
+      su2double PT_Mean = 0.0, q_Mean = 0.0;
+      for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
+        PT_Sector[iAngle] = 0.0;
+        for (auto iStation = 0; iStation < nStation; iStation++) {
+          PT_Sector[iAngle] += ProbeArray[iAngle][iStation][3]/float(nStation);
+          PT_Mean           += ProbeArray[iAngle][iStation][3]/float(nStation*nAngle);
+          q_Mean            += ProbeArray[iAngle][iStation][4]/float(nStation*nAngle);
+        }
       }
-    }
 
-    /*--- Compute the min value of the averaged pressure at each sector ---*/
-    PT_Sector_Min = PT_Sector[0];
-    for (auto iAngle = 1; iAngle < nAngle; iAngle++) {
-      if (PT_Sector[iAngle] <= PT_Sector_Min) PT_Sector_Min = PT_Sector[iAngle];
-    }
-
-    /*--- Set the value of the distortion, it only works for one surface ---*/
-    su2double Mach_Inf           = config->GetMach();
-    su2double Gamma              = config->GetGamma();
-    su2double TotalPressure_Inf  = config->GetPressure_FreeStreamND() * pow( 1.0 + Mach_Inf * Mach_Inf *
-                                                                    0.5 * (Gamma - 1.0), Gamma    / (Gamma - 1.0));
-    if (q_Mean != 0.0) DC60 = ((PT_Mean - PT_Sector_Min))/q_Mean;
-    else DC60 = 0.0;
-
-    Surface_DC60Distortion_Total[iMarker_Analyze] = DC60;
-
-    /*--- Deallocate the memory ---*/
-    delete[] r;
-    delete [] PT_Sector;
-
-    for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
-      for (auto iStation = 0; iStation < nStation; iStation++) {
-        delete[] ProbeArray[iAngle][iStation];
+      /*--- Compute the min value of the averaged pressure at each sector ---*/
+      PT_Sector_Min = PT_Sector[0];
+      for (auto iAngle = 1; iAngle < nAngle; iAngle++) {
+        if (PT_Sector[iAngle] <= PT_Sector_Min) PT_Sector_Min = PT_Sector[iAngle];
       }
+
+      /*--- Set the value of the distortion, it only works for one surface ---*/
+      su2double Mach_Inf           = config->GetMach();
+      su2double Gamma              = config->GetGamma();
+      su2double TotalPressure_Inf  = config->GetPressure_FreeStreamND() * pow( 1.0 + Mach_Inf * Mach_Inf *
+                                                                      0.5 * (Gamma - 1.0), Gamma    / (Gamma - 1.0));
+      if (q_Mean != 0.0) DC60 = ((PT_Mean - PT_Sector_Min))/q_Mean;
+      else DC60 = 0.0;
+
+      Surface_DC60Distortion_Total[iMarker] = DC60;
+
+      /*--- Deallocate the memory ---*/
+      delete[] r;
+      delete [] PT_Sector;
+
+      for (auto iAngle = 0; iAngle < nAngle; iAngle++) {
+        for (auto iStation = 0; iStation < nStation; iStation++) {
+          delete[] ProbeArray[iAngle][iStation];
+        }
+      }
+      delete[] ProbeArray;
     }
-    delete[] ProbeArray;
   }
-
 
   for (iMarker_Analyze = 0; iMarker_Analyze < nMarker_Analyze; iMarker_Analyze++) {
 
