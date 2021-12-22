@@ -489,7 +489,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
   /*--- Compute DC60 Metric.   Future work should include MPI version and standalone function value ---*/
   for (iMarker_Analyze = 0; iMarker_Analyze < nMarker_Analyze; iMarker_Analyze++) {
-
+    
     // Initialize
     su2double *r, PT, q, *PT_Sector, PT_Sector_Min,
      DC60, *PT_Station, *PT_Station_Min, *Mach_Station,
@@ -602,6 +602,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
           yCoord = geometry->node[iPoint]->GetCoord(1);
           if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
 
+cout <<xCoord<<endl;
           su2double dx = (xCoord_ - xCoord);
           su2double dy = (yCoord_ - yCoord);
           su2double dz = 0.0; if (nDim == 3) dz = (zCoord_ - zCoord);
