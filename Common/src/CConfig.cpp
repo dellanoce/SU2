@@ -3353,6 +3353,7 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
         case SURFACE_SECONDARY:
         case SURFACE_MOM_DISTORTION:
         case SURFACE_SECOND_OVER_UNIFORM:
+        case SURFACE_DC60_DISTORTION:
         case SURFACE_PRESSURE_DROP:
         case AVG_NORMAL_VEL:
         case CUSTOM_OBJFUNC:
@@ -3362,7 +3363,7 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
                            string("INVERSE_DESIGN_PRESSURE, INVERSE_DESIGN_HEATFLUX, THRUST_COEFFICIENT, TORQUE_COEFFICIENT\n")+
                            string("FIGURE_OF_MERIT, SURFACE_TOTAL_PRESSURE, SURFACE_STATIC_PRESSURE, SURFACE_MASSFLOW\n")+
                            string("SURFACE_UNIFORMITY, SURFACE_SECONDARY, SURFACE_MOM_DISTORTION, SURFACE_SECOND_OVER_UNIFORM\n")+
-                           string("SURFACE_PRESSURE_DROP, CUSTOM_OBJFUNC.\n"), CURRENT_FUNCTION);
+                           string("SURFACE_DC60_DISTORTION, SURFACE_PRESSURE_DROP, CUSTOM_OBJFUNC.\n"), CURRENT_FUNCTION);
           }
           break;
         default:
@@ -7846,6 +7847,7 @@ string CConfig::GetObjFunc_Extension(string val_filename) {
         case SURFACE_SECONDARY:           AdjExt = "_second";   break;
         case SURFACE_MOM_DISTORTION:      AdjExt = "_distort";  break;
         case SURFACE_SECOND_OVER_UNIFORM: AdjExt = "_sou";      break;
+        case SURFACE_DC60_DISTORTION:     AdjExt = "_dc60";     break;
         case SURFACE_PRESSURE_DROP:       AdjExt = "_dp";       break;
         case SURFACE_MACH:                AdjExt = "_mach";     break;
         case CUSTOM_OBJFUNC:              AdjExt = "_custom";   break;
