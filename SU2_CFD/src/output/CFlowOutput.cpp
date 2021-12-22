@@ -506,11 +506,6 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
       yCoord = geometry->node[iPoint]->GetCoord(1);
       if (nDim == 3) zCoord = geometry->node[iPoint]->GetCoord(2);
 
-      if (config->GetSystemMeasurements() == US) {
-        xCoord *= 12.0; yCoord *= 12.0;
-        if (nDim == 3) zCoord *= 12.0;
-      }
-
       for (iDim = 0; iDim < nDim; iDim++) { Area += (Vector[iDim])* (Vector[iDim]);}
       Area       = sqrt(Area);
       q          = 0.5*solver->GetNodes()->GetDensity(iPoint)*
@@ -529,8 +524,8 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     Mach_Mean = Surface_Mach_Total[iMarker_Analyze];
     q_Mean    /=  TotalArea;
 
-    /*--- Compute hub and tip radius ---*/
-    su2double TipRadius = 1E-6, HubRadius = 1E6;
+    /*--- Compute AIP radius ---*/
+    su2double Radius = 1E-6;
     for (iVertex = 0; iVertex < geometry->GetnVertex(iMarker_Analyze); iVertex++) {
 
       /*--- Current index position and global index ---*/
@@ -549,16 +544,16 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
                         (yCoord_CG-yCoord)*(yCoord_CG-yCoord) +
                         (zCoord_CG-zCoord)*(zCoord_CG-zCoord));
 
-      if (Distance > TipRadius) TipRadius = Distance;
-      if (Distance < HubRadius) HubRadius = Distance;
+      if (Distance > Radius) Radius = Distance;
     }
-    if (HubRadius/TipRadius < 0.05) HubRadius = 0.0;
 
-
-    /*---Compute DC60 Metric --*/
+    /*---                    ---*/
+    /*---Compute DC60 Metric ---*/
+    /*---                    ---*/
     unsigned short Theta = 60, nStation = 5;
-
     unsigned short nAngle = SU2_TYPE::Int(360/float(Theta));
+
+    /*--- Initialize "probes" ---*/
     r = new su2double [nStation+1];
 
     PT_Sector = new su2double [nAngle];
@@ -571,7 +566,7 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
     }
 
     /*--- Define the radius for each probe ---*/
-    r[0] = HubRadius; r[nStation] = TipRadius;
+    r[0] = 0; r[nStation] = Radius;
     for (auto iStation = 1; iStation < nStation; iStation++) {
       r[iStation] = sqrt(  r[iStation-1]*r[iStation-1] + (r[nStation]*r[nStation] - r[0]*r[0])/float(nStation) );
     }
@@ -616,15 +611,15 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
 
           su2double dx = (xCoord_ - xCoord);
           su2double dy = (yCoord_ - yCoord);
-	  su2double dz = 0.0;
-          if (nDim == 3) dz = (zCoord_ - zCoord);
+	        su2double dz = 0.0; if (nDim == 3) dz = (zCoord_ - zCoord);
           su2double Distance;
-          Distance = dx*dx + dy*dy; if (nDim == 3) Distance += dz*dz; Distance = sqrt(Distance);
+          Distance = dx*dx + dy*dy + dz*dz; Distance = sqrt(Distance);
+
           su2double qv = 0.5*solver->GetNodes()->GetDensity(iPoint)*
                              solver->GetNodes()->GetVelocity2(iPoint);
           Mach = sqrt(solver->GetNodes()->GetVelocity2(iPoint))/solver->GetNodes()->GetSoundSpeed(iPoint);
-	  su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
-	  if (Distance <= MinDistance) {
+	        su2double PTv = solver->GetNodes()->GetPressure(iPoint) * pow( 1.0 + Mach * Mach * 0.5 * (Gamma - 1.0), Gamma / (Gamma - 1.0));
+          if (Distance <= MinDistance) {
             MinDistance = Distance;
             ProbeArray[iAngle][iStation][3] = PTv;
             ProbeArray[iAngle][iStation][4] = qv;

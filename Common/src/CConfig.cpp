@@ -898,7 +898,7 @@ void CConfig::SetPointersNull(void) {
   Outlet_MassFlow      = NULL;       Outlet_Density      = NULL;      Outlet_Area     = NULL;
 
   Surface_Uniformity = NULL; Surface_SecondaryStrength = NULL; Surface_SecondOverUniform = NULL;
-  Surface_MomentumDistortion = NULL;
+  Surface_MomentumDistortion = NULL; Surface_DC60Distortion = NULL;
 
   Surface_IDC_Mach        = NULL;    Surface_IDR            = NULL;    ActDisk_Mach             = NULL;
   ActDisk_Force           = NULL;    ActDisk_BCThrust       = NULL;    ActDisk_BCThrust_Old     = NULL;
@@ -5019,6 +5019,7 @@ void CConfig::SetMarkers(unsigned short val_software) {
   Surface_SecondaryStrength = new su2double[nMarker_Analyze] ();
   Surface_SecondOverUniform = new su2double[nMarker_Analyze] ();
   Surface_MomentumDistortion = new su2double[nMarker_Analyze] ();
+  Surface_DC60Distortion = new su2double[nMarker_Analyze] ();
   Surface_TotalTemperature = new su2double[nMarker_Analyze] ();
   Surface_TotalPressure = new su2double[nMarker_Analyze] ();
   Surface_PressureDrop = new su2double[nMarker_Analyze] ();
@@ -7513,6 +7514,7 @@ CConfig::~CConfig(void) {
   if (Surface_SecondaryStrength != NULL)    delete[]  Surface_SecondaryStrength;
   if (Surface_SecondOverUniform != NULL)    delete[]  Surface_SecondOverUniform;
   if (Surface_MomentumDistortion != NULL)    delete[]  Surface_MomentumDistortion;
+  if (Surface_DC60Distortion != NULL)    delete[]  Surface_DC60Distortion;
   if (Surface_TotalTemperature != NULL)    delete[]  Surface_TotalTemperature;
   if (Surface_TotalPressure!= NULL)    delete[]  Surface_TotalPressure;
   if (Surface_PressureDrop!= NULL)    delete[]  Surface_PressureDrop;
