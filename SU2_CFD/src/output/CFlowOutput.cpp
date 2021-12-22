@@ -639,10 +639,6 @@ void CFlowOutput::SetAnalyzeSurface(CSolver *solver, CGeometry *geometry, CConfi
       }
 
       /*--- Set the value of the distortion, it only works for one surface ---*/
-      su2double Mach_Inf           = config->GetMach();
-      su2double Gamma              = config->GetGamma();
-      su2double TotalPressure_Inf  = config->GetPressure_FreeStreamND() * pow( 1.0 + Mach_Inf * Mach_Inf *
-                                                                      0.5 * (Gamma - 1.0), Gamma    / (Gamma - 1.0));
       if (q_Mean != 0.0) DC60 = ((PT_Mean - PT_Sector_Min))/q_Mean;
       else DC60 = 0.0;
 
