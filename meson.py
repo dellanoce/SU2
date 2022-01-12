@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 ## \file meson.py
 #  \brief An extended meson script for setting up the environment and running meson

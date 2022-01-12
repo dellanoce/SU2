@@ -2,6 +2,7 @@ install_data(['continuous_adjoint.py',
              'compute_uncertainty.py',
 	     'finite_differences.py',
 	     'mesh_deformation.py',
+	     'mesh_adaptation_amg.py',
 	     'parallel_computation.py',
 	     'parallel_computation_fsi.py',
 	     'package_tests.py',
@@ -18,6 +19,11 @@ install_data(['continuous_adjoint.py',
 
 install_data(['SU2/__init__.py'], install_dir: join_paths(get_option('bindir'), 'SU2/'))
 
+install_data(['SU2/amginria/interface.py',
+              'SU2/amginria/tools.py',
+              'SU2/amginria/__init__.py'], 
+              install_dir: join_paths(get_option('bindir'), 'SU2/amginria'))
+        
 install_data(['SU2/eval/design.py',
     	      'SU2/eval/functions.py',
     	      'SU2/eval/gradients.py',
@@ -41,6 +47,7 @@ install_data(['SU2/opt/project.py',
 	      install_dir: join_paths(get_option('bindir'), 'SU2/opt'))
 
 install_data(['SU2/run/adjoint.py',
+              'SU2/run/amg.py',
               'SU2/run/deform.py',
               'SU2/run/direct.py',
               'SU2/run/interface.py',

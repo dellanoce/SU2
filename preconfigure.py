@@ -69,6 +69,8 @@ def main():
                       help="Enable Python wrapper compilation", dest="py_wrapper_enabled", default=False)
     parser.add_option("--disable-tecio", action="store_true",
                       help="Disable Tecplot binary support", dest="tecio_disabled", default=False)
+    parser.add_option("--disable-inria", action="store_true",
+                      help="Disable Inria mesh I/O support", dest="inria_disabled", default=False)
     parser.add_option("--disable-normal", action="store_true",
                       help="Disable normal mode support", dest="normal_mode", default=False)
     parser.add_option("-c" , "--check", action="store_true",
@@ -121,9 +123,11 @@ def main():
                   options.mpi_enabled,
                   options.py_wrapper_enabled,
                   options.tecio_disabled,
+                  options.inria_disabled,
                   modes,
                   made_adolc,
-                  made_codi)
+                  made_codi
+                  made_inria)
 
     if options.check:
         prepare_source(options.replace, options.remove, options.revert)
@@ -324,6 +328,67 @@ def init_codi(argument_dict, modes, mpi_support = False, update = False):
 
     return pkg_environ, True
 
+def init_inria(argument_dict, modes, update = False):
+
+    modules_failed = True
+    
+    # This information of the modules is used if projects was not cloned using git
+    # The sha tag must be maintained manually to point to the correct commit
+    sha_version_amg = '753e5b8d31284b9d6e450ae22f9fbc7bce1c483c'
+    github_repo_amg = 'https://github.com/bmunguia/AMGIO'
+
+    amg_name = 'AMGIO'
+
+    alt_name_amg = 'externals/AMGIO'
+
+    # Some log and error files
+    log = open( 'preconf_inria.log', 'w' )
+    err = open( 'preconf_inria.err', 'w' )
+    pkg_environ = os.environ
+
+    amg_status = False
+
+    # Remove modules if update is requested
+    if update:
+        if os.path.exists(alt_name_amg):
+            print('Removing ' + alt_name_amg)
+            shutil.rmtree(alt_name_amg)
+            
+    submodule_check(amg_name, alt_name_amg, github_repo_amg, sha_version_amg, log, err, update)
+
+    # Setup AMG interface
+    import pkg_resources
+    required = {'pyamg','_amgio'}
+    installed = {pkg.key for pkg in pkg_resources.working_set}
+    missing = required - installed
+
+    if '_amgio' in missing:
+        print('Installing _amgio.')
+        cmd = sys.executable
+        amg_ext_dir  = alt_name_amg + '/su2io'
+        subprocess.call([cmd,'setup.py','build_ext'], cwd = amg_ext_dir, stdout = log, stderr = err)
+        subprocess.call([cmd,'setup.py','install','--user'], cwd = amg_ext_dir, stdout = log, stderr = err)
+
+    # Install pyAMG
+    if 'pyamg' in missing:
+        if sys.platform == 'linux' or sys.platform == 'linux2':
+            print('Installing pyAMG for Linux.')
+            pyamg_whl = 'pyamg-1.0.0-cp37-cp37m-linux_x86_64.whl'
+
+        elif sys.platform == 'darwin':
+            print('Installing pyAMG for Mac.')
+            pyamg_whl = 'pyamg-1.0.1-cp37-cp37m-macosx_10_9_x86_64.whl'
+
+        pyamg_whl = alt_name_amg + '/pyamg/Python3/' + pyamg_whl
+        try:
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--user', pyamg_whl], stdout=log, stderr = err)
+          log.close()
+          err.close()
+        except:
+            print('pyAMG installation failed')
+
+    return True
+    
 def submodule_check(name, alt_name, github_rep, sha_tag, log, err, update = False):
 
     try:
@@ -403,9 +468,11 @@ def configure(argument_dict,
               mpi_support,
               py_wrapper,
               tecio,
+              inria,
               modes,
               made_adolc,
-              made_codi):
+              made_codi
+              made_inria):
 
     # Boostrap to generate Makefile.in
     bootstrap_command = './bootstrap'
@@ -423,6 +490,8 @@ def configure(argument_dict,
         configure_base = configure_base + ' --enable-PY_WRAPPER'
     if tecio:
         configure_base = configure_base + ' --disable-tecio'
+    if inria:
+        configure_base = configure_base + ' --disable-inria'
 
     build_dirs = ''
    

@@ -67,6 +67,12 @@ if get_option('enable-autodiff')
   endif
 endif
 
+if get_option('enable-inria')
+  subdir('externals/AMGIO/sources')
+  su2_deps += libmeshb7_dep
+  su2_cpp_args += '-DHAVE_INRIA'
+endif
+
 # add cgns library
 if get_option('enable-cgns')
   subdir('externals/cgns')

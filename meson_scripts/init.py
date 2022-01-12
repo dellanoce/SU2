@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 ## \file init.py
 #  \brief Initializes necessary dependencies for SU2 either using git or it
@@ -48,6 +48,8 @@ def init_submodules(method = 'auto'):
   github_repo_codi = 'https://github.com/scicompkl/CoDiPack'
   sha_version_medi = '6aef76912e7099c4f08c9705848797ca9e8070da'
   github_repo_medi = 'https://github.com/SciCompKL/MeDiPack'
+  sha_version_amg = '1dcaf3944a79d2460d5ebf5fbe0cf004a2956765'
+  github_repo_amg = 'https://github.com/bmunguia/AMGIO'
   sha_version_opdi = '6fb2691b8e4a8f00f47d2a27740fa890df0b5405'
   github_repo_opdi = 'https://github.com/SciCompKL/OpDiLib'
   sha_version_meson = '29ef4478df6d3aaca40c7993f125b29409be1de2'
@@ -59,6 +61,7 @@ def init_submodules(method = 'auto'):
 
   medi_name = 'MeDiPack'
   codi_name = 'CoDiPack'
+  amg_name = 'AMGIO'
   opdi_name = 'OpDiLib'
   meson_name = 'meson'
   ninja_name= 'ninja'
@@ -66,6 +69,7 @@ def init_submodules(method = 'auto'):
   base_path = cur_dir + os.path.sep + 'externals' + os.path.sep 
   alt_name_medi = base_path + 'medi'
   alt_name_codi = base_path + 'codi'
+  alt_name_amg  = base_path + 'AMGIO'
   alt_name_opdi = base_path + 'opdi'
   alt_name_meson =  base_path + 'meson'
   alt_name_ninja =  base_path + 'ninja'
@@ -87,6 +91,7 @@ def init_submodules(method = 'auto'):
   if is_git:
     submodule_status(alt_name_codi, sha_version_codi)
     submodule_status(alt_name_medi, sha_version_medi)
+    submodule_status(alt_name_amg, sha_version_amg)
     submodule_status(alt_name_opdi, sha_version_opdi)
     submodule_status(alt_name_meson, sha_version_meson)
     submodule_status(alt_name_ninja, sha_version_ninja)
@@ -95,10 +100,34 @@ def init_submodules(method = 'auto'):
   else:
     download_module(codi_name, alt_name_codi, github_repo_codi, sha_version_codi)
     download_module(medi_name, alt_name_medi, github_repo_medi, sha_version_medi)
+    download_module(amg_name, alt_name_amg, github_repo_amg, sha_version_amg)
     download_module(opdi_name, alt_name_opdi, github_repo_opdi, sha_version_opdi)
     download_module(meson_name, alt_name_meson, github_repo_meson, sha_version_meson)
     download_module(ninja_name, alt_name_ninja, github_repo_ninja, sha_version_ninja)
     download_module(mpp_name, alt_name_mpp, github_repo_mpp, sha_version_mpp)
+    
+  # Some log and error files
+  log = open( 'preconf_inria.log', 'w' )
+  err = open( 'preconf_inria.err', 'w' )
+
+  # Setup AMG interface
+  # Require at least python 3.7 for pyamg
+  if sys.version_info >= (3, 7):
+    import pkg_resources
+    required = {'pyamg','_amgio'}
+    installed = {pkg.key for pkg in pkg_resources.working_set}
+    missing = required - installed
+
+    if '_amgio' in missing:
+      print('Installing _amgio.')
+      cmd = sys.executable
+      amg_ext_dir  = alt_name_amg + '/su2io'
+      subprocess.call([cmd,'setup.py','build_ext'], cwd = amg_ext_dir, stdout = log, stderr = err)
+      subprocess.call([cmd,'setup.py','install','--user'], cwd = amg_ext_dir, stdout = log, stderr = err)
+
+    # Setup pyamg
+    if 'pyamg' in missing:
+      install_pyamg(log, err)
 
 def is_git_directory(path = '.'):
   try:
@@ -201,7 +230,25 @@ def download_module(name, alt_name, git_repo, commit_sha):
       f = open(alt_name + os.path.sep + commit_sha, 'w')
       f.close()
 
+def install_pyamg(log, err):
+  # Install pyAMG
+  if sys.platform == 'linux' or sys.platform == 'linux2':
+      print('Installing pyAMG for Linux.')
+      pyamg_whl = 'pyamg-1.0.0-cp37-cp37m-linux_x86_64.whl'
 
+  elif sys.platform == 'darwin':
+      print('Installing pyAMG for Mac.')
+      pyamg_whl = 'pyamg-1.0.1-cp37-cp37m-macosx_10_9_x86_64.whl'
+
+  pyamg_whl = 'externals/AMGIO/pyamg/Python3/' + pyamg_whl
+  try:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--user', pyamg_whl], stdout=log, stderr = err)
+    log.close()
+    err.close()
+  except:
+      print('pyAMG installation failed')
+
+  return True
    
 if __name__ == '__main__':
   if sys.version_info[0] < 3:
