@@ -18,9 +18,6 @@
 [submodule "externals/opdi"]
 	path = externals/opdi
 	url = https://github.com/SciCompKL/OpDiLib
-[submodule "AMGIO"]
-	path = AMGIO
-	url = https://github.com/bmunguia/AMGIO
 [submodule "externals/AMGIO"]
 	path = externals/AMGIO
 	url = https://github.com/bmunguia/AMGIO
